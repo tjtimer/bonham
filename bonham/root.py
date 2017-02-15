@@ -15,6 +15,7 @@ sys.path.append(project_path)
 
 from bonham.settings import INSTALLED_MIDDLEWARES, DEBUG, TEMPLATE_DIR, LOG_FORMAT, LOG_FILE, LOG_LEVEL
 
+# Ultra fast implementation of asyncio event loop on top of libuv. -> see https://github.com/MagicStack/uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 

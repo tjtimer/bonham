@@ -8,6 +8,7 @@ from aiohttp import log, web
 from uvloop import EventLoopPolicy
 
 from bonham import router
+from bonham.bonham_authentication.middlewares import auth_middleware
 from bonham.middlwares import data_middleware, engine_middleware, error_middleware
 from bonham.settings import DEBUG, DSN, HOST, LOG_FILE, LOG_FORMAT, LOG_LEVEL, PORT, TEMPLATE_DIR
 
@@ -19,6 +20,7 @@ asyncio.set_event_loop_policy(EventLoopPolicy())
 async def init_app(loop=None):
     # init web.Application
     app = web.Application(middlewares=[
+        auth_middleware,
         engine_middleware,
         data_middleware,
         error_middleware

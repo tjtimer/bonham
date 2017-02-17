@@ -10,7 +10,7 @@ async def auth_middleware(app, handler):
         if auth_token:
             r_user = await token.verify_user(auth_token)
             request['user'] = User(**r_user)
-            app.logger.debug(f'\n{request["user"]}\nrequest:\n\t{request.__dict__)}')
+            app.logger.debug(f'\n{request["user"]}\nrequest:\n\t{request.__dict__}')
         response = await handler(request)
         return response
 

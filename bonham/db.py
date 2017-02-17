@@ -1,6 +1,7 @@
 import arrow
 import sqlalchemy as sa
 import sqlamp
+from sqlalchemy import select
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 
@@ -80,20 +81,25 @@ class BaseModel(object):
 
     async def get(self, connection, **kwargs):
         if 'fields' not in kwargs.keys():
-            kwargs['fields'] = '*'
+            stmt = self.__table__.select()
+        else:
+            stmt = select([self.__table__.c[key] for key in kwargs['fields'].split(',')])
         if 'order_by' not in kwargs.keys():
             kwargs['order_by'] = 'id'
         if 'limit' not in kwargs.keys():
             kwargs['limit'] = 1000
-        stmt = f"SELECT {kwargs['fields']} FROM \"{self.__table__}\""
-        if 'where' in kwargs.keys():
-            stmt += f" WHERE {self.__table__}.{kwargs['where']} "
         if 'offset' not in kwargs.keys():
             kwargs['offset'] = 0
-        stmt += f" ORDER BY \"{self.__table__}\".{kwargs['order_by']} LIMIT {kwargs['limit']} OFFSET {kwargs['offset']}"
+
+        print(stmt)
+        if 'where' in kwargs.keys():
+            stmt.where(kwargs['where'])
+        stmt.order_by(kwargs['order_by']).offset(kwargs['offset']).limit(kwargs['limit'])
         try:
-            print(stmt)
-            return ({ key: value for key, value in item.items() } for item in await connection.fetch(stmt))
+            print()
+            statement = stmt.compile(compile_kwargs={ 'literal_binds': True })
+            print(statement)
+            return ({ key: value for key, value in item.items() } for item in await connection.fetch(str(statement)))
         except Exception as e:
             print('\nget all {}s exception: {}\n'.format(self.__table__, e))
             raise

@@ -1,27 +1,31 @@
 import asyncio
 import logging
-import os
-import sys
 
-import aiohttp_jinja2 as aiohttp_jinja2
-import jinja2 as jinja2
-import uvloop
-from aiohttp import web
+import aiohttp_jinja2
+import asyncpg
+import jinja2
+from aiohttp import log, web
+from uvloop import EventLoopPolicy
 
-# this adds our project folder to the python path
-# needed to import from bonham
-project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(project_path)
+from bonham import router
+from bonham.middlwares import data_middleware, engine_middleware, error_middleware
+from bonham.settings import DEBUG, DSN, HOST, LOG_FILE, LOG_FORMAT, LOG_LEVEL, PORT, TEMPLATE_DIR
 
-from bonham.settings import INSTALLED_MIDDLEWARES, DEBUG, TEMPLATE_DIR, LOG_FORMAT, LOG_FILE, LOG_LEVEL
-
-# Ultra fast implementation of asyncio event loop on top of libuv. -> see https://github.com/MagicStack/uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+# Ultra fast implementation of asyncio event loop on top of libuv.
+# see https://github.com/MagicStack/uvloop
+asyncio.set_event_loop_policy(EventLoopPolicy())
 
 
-def init_app(loop=None):
+async def init_app(loop=None):
     # init web.Application
-    app = web.Application(loop=loop, middlewares=INSTALLED_MIDDLEWARES, debug=DEBUG)
+    app = web.Application(middlewares=[
+        engine_middleware,
+        data_middleware,
+        error_middleware
+    ], loop=loop, debug=DEBUG)
+    app['db'] = await asyncpg.create_pool(dsn=DSN)
+    # filling the router table
+    router.setup(app.router)
 
     # configure app logger
     formatter = logging.Formatter(LOG_FORMAT)
@@ -40,6 +44,7 @@ def init_app(loop=None):
 
 
 if __name__ == '__main__':
-    app = init_app()
+    loop = asyncio.get_event_loop()
+    app = loop.run_until_complete(init_app())
     app.logger.debug('started application')
-    web.run_app(app)
+    web.run_app(app, host=HOST, port=PORT, backlog=128, access_log_format=LOG_FORMAT, access_log=log.access_logger)

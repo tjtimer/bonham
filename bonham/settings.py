@@ -1,12 +1,20 @@
 import logging
-import os
 import socket
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-TEMPLATE_DIR = os.path.join(BASE_DIR, 'public', 'templates')
+import os
+
+from bonham.local_settings import LOCAL_DSN
+from bonham.middlwares import data_middleware, engine_middleware, error_middleware
+
+HOST = 'localhost'
+PORT = 8080
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'bonham', 'templates')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'public', 'media')
-STATIC_URL = 'assets/'
-MEDIA_URL = 'media/'
+ASSETS_DIR = os.path.join(BASE_DIR, 'public', 'assets')
+ASSETS_URL = '/assets'
+MEDIA_URL = '/media'
 
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'app.log')
 LOG_FORMAT = '\n%(asctime)s\t%(name)s - %(levelname)s\n' \
@@ -15,16 +23,11 @@ LOG_FORMAT = '\n%(asctime)s\t%(name)s - %(levelname)s\n' \
 
 DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if it is not
 
-if DEBUG:
-    DSN = 'postgresql://tjtimer@127.0.0.1:5432/tjs_dev_db'
-    LOG_LEVEL = logging.DEBUG
-
-
-else:
-    DSN = 'postgresql://<username>:<password>@<host>:<port>/<dbname>'
-    LOG_LEVEL = logging.WARN
-
-INSTALLED_MIDDLEWARES = []
+INSTALLED_MIDDLEWARES = [
+    engine_middleware,
+    data_middleware,
+    error_middleware
+]
 
 RSA_DIR = os.path.join(BASE_DIR, 'rsa/self_signed')
 RSA_PEM = os.path.join(RSA_DIR, 'rsa.pem')
@@ -52,3 +55,12 @@ MAIL_HOST = 'mail.wservices.ch'
 SMTP_PORT = 465
 IMAP_PORT = 993
 POP3_PORT = 995
+
+if DEBUG:
+    DSN = LOCAL_DSN
+    LOG_LEVEL = logging.DEBUG
+
+
+else:
+    DSN = 'postgresql://<username>:<password>@<host>:<port>/<dbname>'
+    LOG_LEVEL = logging.WARN

@@ -41,8 +41,7 @@ async def engine_middleware(app, handler):
             response = await handler(request)
             return response
         try:
-            async with app['db'].acquire() as connection:
-                request['connection'] = connection
+            async with app['db'].acquire() as request['connection']:
                 response = await handler(request)
             return response
         except Exception as e:

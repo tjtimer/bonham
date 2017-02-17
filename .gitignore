@@ -26,3 +26,4 @@ sdist/
 /bonham.egg-info/
 /bonham/local_settings.py
 /rsa/self_signed/
+/.cache/

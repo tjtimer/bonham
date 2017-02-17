@@ -11,3 +11,5 @@ This is pure work in progress
 !!! DO NOT USE ANY OF THIS CODE !!!
 
 But feel free to review and criticize it.
+
+requires Python 3.6

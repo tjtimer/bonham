@@ -70,7 +70,7 @@ class User(Base, BaseModel):
         new_friend = await Friend(
                 user_id=self.id,
                 friend_id=friend_id,
-                friendship=friendship).create(connection)
+                friendship=Friendship.requested).create(connection)
         return new_friend
 
     async def update_friendship(self, connection, *, friend_id=None, friendship=None):
@@ -106,18 +106,14 @@ class User(Base, BaseModel):
         :return: json serializable key-value pairs of instance
         :rtype: object
         """
-        data = {
-            'id': self.id,
-            'name': self.name,
-            'email': self.email,
-            'avatar': self.avatar,
-            'slogan': self.slogan,
-            'birthday': arrow.get(self.birthday).format('YYYY-MM-DD'),
-            'created': arrow.get(self.created).humanize(),
-            'locale': self.locale.get_language_name(),
-            'privacy': PrivacyStatus(self.privacy).label,
-        }
-        return data
+        if self.birthday:
+            self.birthday = arrow.get(self.birthday).format('YYYY-MM-DD')
+        if self.created:
+            self.created = arrow.get(self.created).humanize()
+        if self.privacy:
+            self.privacy = PrivacyStatus(self.privacy).label
+
+        return { key: value for key, value in self.__dict__.items() if key in self.__table__.c.keys() }
 
 
 create_tables(models=[User, Friend])

@@ -79,18 +79,21 @@ class BaseModel(object):
             raise
 
     async def get(self, connection, **kwargs):
+        if 'fields' not in kwargs.keys():
+            kwargs['fields'] = '*'
         if 'order_by' not in kwargs.keys():
             kwargs['order_by'] = 'id'
         if 'limit' not in kwargs.keys():
             kwargs['limit'] = 1000
-        stmt = self.__table__.select().limit(kwargs['limit']).order_by(kwargs['order_by'])
+        stmt = f"SELECT {kwargs['fields']} FROM \"{self.__table__}\""
         if 'where' in kwargs.keys():
-            stmt = stmt.where(kwargs['where'])
-        if 'offset' in kwargs.keys():
-            stmt = stmt.offset(kwargs['offset'])
+            stmt += f" WHERE {self.__table__}.{kwargs['where']} "
+        if 'offset' not in kwargs.keys():
+            kwargs['offset'] = 0
+        stmt += f" ORDER BY \"{self.__table__}\".{kwargs['order_by']} LIMIT {kwargs['limit']} OFFSET {kwargs['offset']}"
         try:
-            r_proxy = await connection.execute(stmt)
-            return ({ key: value for key, value in item.items() } for item in (await r_proxy.fetch()))
+            print(stmt)
+            return ({ key: value for key, value in item.items() } for item in await connection.fetch(stmt))
         except Exception as e:
             print('\nget all {}s exception: {}\n'.format(self.__table__, e))
             raise

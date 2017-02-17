@@ -5,7 +5,8 @@ from io import BytesIO
 from sqlalchemy import and_
 
 from bonham.bonham_media.functions import process_image
-from bonham.bonham_user.models import User
+from bonham.bonham_user.constants import Friendship
+from bonham.bonham_user.models import Friend, User
 from bonham.settings import UPLOAD_DIR
 
 
@@ -28,11 +29,18 @@ async def get_user(request):
 
 async def get_users(request):
     qs = request.rel_url.query_string
-    kwargs = { pair.split('=')[0]: pair.split('=')[1] for pair in qs.split('&') }
+    if qs:
+        kwargs = { pair.split('=')[0]: pair.split('=')[1] for pair in qs.split('&') }
+    else:
+        kwargs = {
+            'offset': 0,
+            'order_by': 'name',
+            'limit': 50
+        }
     print('get_users request:\n\t{}'.format(kwargs))
     try:
         users = []
-        async for data in request['user'].get(request['connection'], **kwargs):
+        for data in await request['user'].get(request['connection'], **kwargs):
             if data['id'] != request['user'].id:
                 users.append((await User(**data).serialized()))
         return web.json_response(users)
@@ -101,8 +109,10 @@ async def get_friends(request):
 
 async def request_friendship(request):
     try:
-        result = await request['user'].add_friend(request['connection'], request['data']['user_id'])
-        print(result)
+        await Friend(
+                user_id=request['user'].id,
+                friend_id=request['data']['user_id'],
+                friendship=Friendship.requested).create(request['connection'])
         response = {
             'message': {
                 'type': 'message',

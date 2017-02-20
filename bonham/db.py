@@ -12,10 +12,11 @@ Base = declarative_base(metaclass=sqlamp.DeclarativeMeta)
 
 
 def create_tables(*, models=None):
-    engine = sa.create_engine(DSN, client_encoding='utf8')
+    engine = sa.create_engine(DSN, client_encoding='utf8', echo=True)
     for model in models:
         model.metadata.bind = engine
         model.metadata.create_all()
+    return models
 
 
 def ForeignKey(related, ondelete=None, onupdate=None, primary_key=None):
@@ -58,13 +59,17 @@ class BaseModel(object):
         return f"<{self.__table__}: {props}>"
 
     async def create(self, connection):
+        self.created = f"TIMESTAMP \'{arrow.utcnow().format('YYYY-MM-DD HH:mm:ss')}\'"
         data = { key: value for key, value in self.__dict__.items() if key in self.__table__.c.keys() }
-        # data['created'] = arrow.now()
-        stmt = self.__table__.insert().values(data).returning(self.__table__)
+        keys = [f'{self.__table__.c[key]}' for key in data.keys()]
+        print(keys)
         try:
-            _result = await connection.execute(stmt)
-            result = await _result.fetchrow()
-            self.__dict__.update(dict(result))
+            async with connection.transaction():
+                stmt1 = self.__table__.insert().values(data).returning(self.__table__)
+                statement1 = str(stmt1.compile(compile_kwargs={ 'literal_binds': True }))
+                print(statement1)
+                result = await connection.fetchrow(statement1)
+                self.__dict__.update(dict(result))
         except Exception as e:
             print('\ncreate {} exception: {}\n'.format(self.__table__, e))
             raise
@@ -80,28 +85,25 @@ class BaseModel(object):
             raise
 
     async def get(self, connection, **kwargs):
-        if 'fields' not in kwargs.keys():
+        k_keys = kwargs.keys()
+        if 'fields' not in k_keys:
             stmt = self.__table__.select()
         else:
             stmt = select([self.__table__.c[key] for key in kwargs['fields'].split(',')])
-        if 'order_by' not in kwargs.keys():
-            kwargs['order_by'] = 'id'
-        if 'limit' not in kwargs.keys():
-            kwargs['limit'] = 1000
-        if 'offset' not in kwargs.keys():
-            kwargs['offset'] = 0
-
-        print(stmt)
-        if 'where' in kwargs.keys():
+        if 'where' in k_keys:
             stmt.where(kwargs['where'])
+        if 'order_by' not in k_keys:
+            kwargs['order_by'] = 'id'
+        if 'offset' not in k_keys:
+            kwargs['offset'] = 0
+        if 'limit' not in k_keys:
+            kwargs['limit'] = 1000
         stmt.order_by(kwargs['order_by']).offset(kwargs['offset']).limit(kwargs['limit'])
         try:
-            print()
-            statement = stmt.compile(compile_kwargs={ 'literal_binds': True })
-            print(statement)
-            return ({ key: value for key, value in item.items() } for item in await connection.fetch(str(statement)))
+            return ({ key: value for key, value in row.items() } for row in
+                    await connection.fetch(str(stmt.compile(compile_kwargs={ 'literal_binds': True }))))
         except Exception as e:
-            print('\nget all {}s exception: {}\n'.format(self.__table__, e))
+            print('\nget {}s exception: {}\n'.format(self.__table__, e))
             raise
 
     async def update(self, connection, key=None):

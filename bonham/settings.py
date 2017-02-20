@@ -17,9 +17,9 @@ ASSETS_URL = '/assets'
 MEDIA_URL = '/media'
 
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'app.log')
-LOG_FORMAT = '\n%(asctime)s\t%(name)s - %(levelname)s\n' \
+LOG_FORMAT = '%(asctime)s\t%(name)s - %(levelname)s\n' \
              '\t-\t%(pathname)s - %(filename)s - %(funcName)s\n' \
-             '\t-\t%(''message)s'
+             '\t-\t%(message)s'
 
 DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if it is not
 

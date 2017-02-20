@@ -4,7 +4,8 @@ import logging
 import aiohttp_jinja2
 import asyncpg
 import jinja2
-from aiohttp import log, web
+import uvloop
+from aiohttp import web
 from uvloop import EventLoopPolicy
 
 from bonham import router
@@ -25,11 +26,12 @@ async def init_app(loop=None):
         data_middleware,
         error_middleware
     ], loop=loop, debug=DEBUG)
-    app['db'] = await asyncpg.create_pool(dsn=DSN)
+    app['db'] = await asyncpg.create_pool(dsn=DSN, loop=loop)
     # filling the router table
     router.setup(app.router)
 
     # configure app logger
+    app.logger = logging.getLogger('bonham.root')
     formatter = logging.Formatter(LOG_FORMAT)
     log_file = logging.FileHandler(LOG_FILE)
     log_file.setFormatter(formatter)
@@ -45,8 +47,17 @@ async def init_app(loop=None):
     return app
 
 
+def create_app(loop=None):
+    if loop is None:
+        loop = uvloop.new_event_loop()
+        asyncio.set_event_loop(loop)
+    app = loop.run_until_complete(init_app(loop=loop))
+    app.logger.debug('started application')
+    return app
+
+
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    app = loop.run_until_complete(init_app())
-    app.logger.debug('started application')
-    web.run_app(app, host=HOST, port=PORT, backlog=128, access_log_format=LOG_FORMAT, access_log=log.access_logger)
+    app = loop.run_until_complete(init_app(loop=loop))
+    app.logger.debug(f'started application:\n\t{app.__dict__}')
+    web.run_app(app, host=HOST, port=PORT)

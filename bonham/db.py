@@ -41,11 +41,11 @@ class BaseModel(object):
 
     @declared_attr
     def last_updated(self):
-        return sa.Column(ArrowType)
+        return sa.Column(ArrowType(timezone=True))
 
     @declared_attr
     def created(self):
-        return sa.Column(ArrowType)
+        return sa.Column(ArrowType(timezone=True))
 
     @declared_attr
     def privacy(self):
@@ -59,17 +59,16 @@ class BaseModel(object):
         return f"<{self.__table__}: {props}>"
 
     async def create(self, connection):
-        self.created = f"TIMESTAMP \'{arrow.utcnow().format('YYYY-MM-DD HH:mm:ss')}\'"
+        self.created = f"TIMESTAMP \'{arrow.utcnow()}\'"
         data = { key: value for key, value in self.__dict__.items() if key in self.__table__.c.keys() }
         keys = [f'{self.__table__.c[key]}' for key in data.keys()]
         print(keys)
         try:
-            async with connection.transaction():
-                stmt1 = self.__table__.insert().values(data).returning(self.__table__)
-                statement1 = str(stmt1.compile(compile_kwargs={ 'literal_binds': True }))
-                print(statement1)
-                result = await connection.fetchrow(statement1)
-                self.__dict__.update(dict(result))
+            stmt1 = self.__table__.insert().values(data).returning(self.__table__)
+            statement1 = str(stmt1.compile(compile_kwargs={ 'literal_binds': True }))
+            print(statement1)
+            result = await connection.fetchrow(statement1)
+            self.__dict__.update(dict(result))
         except Exception as e:
             print('\ncreate {} exception: {}\n'.format(self.__table__, e))
             raise
@@ -107,9 +106,9 @@ class BaseModel(object):
             raise
 
     async def update(self, connection, key=None):
+        self.last_updated = f"TIMESTAMP \'{arrow.utcnow().to('local').to('utc').format('YYYY-MM-DD HH:mm:ss')}\'"
         data = { key: value for key, value in self.__dict__.items() if key in self.__table__.c.keys() and value is not
                  None }
-        data['last_updated'] = arrow.utcnow()
         if key is None:
             print(self.__dict__, data)
             stmt = self.__table__.update().where(self.__table__.c.id == self.id).values(
@@ -118,18 +117,11 @@ class BaseModel(object):
             stmt = self.__table__.update().where(self.__table__.c[key] == self.__dict__[key]).values(
                     data).returning(self.__table__)
         try:
-            r_proxy = await connection.execute(stmt)
-            result = await r_proxy.fetchone()
+            result = await connection.fetchrow(str(stmt.compile(compile_kwargs={ 'literal_binds': True })))
             self.__dict__.update(dict(result))
         except Exception as e:
             print('\nupdate {} exception: {}\n'.format(self.__table__, type(e).__name__))
             raise
-
-    async def save(self, connection):
-        try:
-            await self.update(connection)
-        except TypeError:
-            await self.create(connection)
 
     async def clean_data(self):
         data = self.__dict__

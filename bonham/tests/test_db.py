@@ -25,4 +25,5 @@ async def test_model_create(testmodel):
         async with pool.acquire() as connection:
             await testmodel.create(connection)
             assert testmodel.id >= 1
+            print(testmodel.created)
             assert arrow.get(testmodel.created) <= arrow.utcnow()

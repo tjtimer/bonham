@@ -78,7 +78,7 @@ async def token_login(request):
     token = Token()
     request['user'].logged_in = True
     try:
-        await request['user'].save(request['connection'])
+        await request['user'].update(request['connection'])
         friends = list((await request['user'].get_friends(request['connection'])))
         token = await token.create(request['user'].__dict__)
         user_serialized = await request['user'].serialized()

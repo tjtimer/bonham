@@ -18,10 +18,10 @@ def client(loop, test_client):
 
 
 class TestModel(Base, BaseModel):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def testmodel():
-    return TestModel()
+    return TestModel

@@ -29,22 +29,22 @@ UserStatus.blocked.label = (u'Blocked bonham_user')
 
 
 class PrivacyStatus(Enum):
-    pub = 1
-    reg = 2
-    fol = 3
-    fri = 4
-    edi = 5
-    adm = 6
-    pri = 7
+    public = 1
+    registered = 2
+    follower = 3
+    friends = 4
+    editors = 5
+    admins = 6
+    private = 7
 
 
-PrivacyStatus.pub.label = (u'Public')
-PrivacyStatus.reg.label = (u'Registered')
-PrivacyStatus.fol.label = (u'Follower')
-PrivacyStatus.fri.label = (u'Friends')
-PrivacyStatus.edi.label = (u'Editors')
-PrivacyStatus.adm.label = (u'Admins')
-PrivacyStatus.pri.label = (u'Private')
+PrivacyStatus.public.label = (u'Public')
+PrivacyStatus.registered.label = (u'Registered')
+PrivacyStatus.follower.label = (u'Follower')
+PrivacyStatus.friends.label = (u'Friends')
+PrivacyStatus.editors.label = (u'Editors')
+PrivacyStatus.admins.label = (u'Admins')
+PrivacyStatus.private.label = (u'Private')
 
 
 class Salutations(Enum):

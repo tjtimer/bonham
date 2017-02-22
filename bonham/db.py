@@ -41,11 +41,11 @@ class BaseModel(object):
 
     @declared_attr
     def last_updated(self):
-        return sa.Column(ArrowType(timezone=True))
+        return sa.Column(ArrowType, nullable=True)
 
     @declared_attr
     def created(self):
-        return sa.Column(ArrowType(timezone=True))
+        return sa.Column(ArrowType)
 
     @declared_attr
     def privacy(self):
@@ -59,28 +59,18 @@ class BaseModel(object):
         return f"<{self.__table__}: {props}>"
 
     async def create(self, connection):
-        self.created = f"TIMESTAMP \'{arrow.utcnow()}\'"
-        data = { key: value for key, value in self.__dict__.items() if key in self.__table__.c.keys() }
-        keys = [f'{self.__table__.c[key]}' for key in data.keys()]
-        print(keys)
+        keys = self.__table__.c.keys()
+        data = {
+            key: value for key, value in self.__dict__.items()
+            if key in keys
+        }
+        data['created'] = f"TIMESTAMP \'{arrow.utcnow()}\'"
         try:
-            stmt1 = self.__table__.insert().values(data).returning(self.__table__)
-            statement1 = str(stmt1.compile(compile_kwargs={ 'literal_binds': True }))
-            print(statement1)
-            result = await connection.fetchrow(statement1)
-            self.__dict__.update(dict(result))
+            stmt = self.__table__.insert().values(data).returning(self.__table__)
+            result = await connection.fetchrow(str(stmt.compile(compile_kwargs={ 'literal_binds': True })))
+            return self.__dict__.update(dict(result))
         except Exception as e:
-            print('\ncreate {} exception: {}\n'.format(self.__table__, e))
-            raise
-        finally:
-            print('create {} done!'.format(self.__table__))
-
-    async def delete(self, connection):
-        stmt = self.__table__.delete().where(self.__table__.c.id == self.id)
-        try:
-            await connection.execute(stmt)
-        except Exception as e:
-            print('\ndelete {} exception: {}\n'.format(self.__table__, e))
+            print(f'create {self.__table__} exception: {type(e).__name__} -> {e}')
             raise
 
     async def get(self, connection, **kwargs):
@@ -90,19 +80,20 @@ class BaseModel(object):
         else:
             stmt = select([self.__table__.c[key] for key in kwargs['fields'].split(',')])
         if 'where' in k_keys:
-            stmt.where(kwargs['where'])
+            stmt = stmt.where(kwargs['where'])
         if 'order_by' not in k_keys:
             kwargs['order_by'] = 'id'
         if 'offset' not in k_keys:
             kwargs['offset'] = 0
         if 'limit' not in k_keys:
             kwargs['limit'] = 1000
-        stmt.order_by(kwargs['order_by']).offset(kwargs['offset']).limit(kwargs['limit'])
+        stmt = stmt.order_by(kwargs['order_by']).offset(kwargs['offset']).limit(kwargs['limit'])
         try:
-            return ({ key: value for key, value in row.items() } for row in
-                    await connection.fetch(str(stmt.compile(compile_kwargs={ 'literal_binds': True }))))
+            statement = str(stmt.compile(compile_kwargs={ 'literal_binds': True }))
+            return ({ key: value for key, value in row.items() } for row in await
+            connection.fetch(statement))
         except Exception as e:
-            print('\nget {}s exception: {}\n'.format(self.__table__, e))
+            print(f"get {self.__table__}s exception: {type(e).__name__} -> {e}")
             raise
 
     async def update(self, connection, key=None):
@@ -110,7 +101,6 @@ class BaseModel(object):
         data = { key: value for key, value in self.__dict__.items() if key in self.__table__.c.keys() and value is not
                  None }
         if key is None:
-            print(self.__dict__, data)
             stmt = self.__table__.update().where(self.__table__.c.id == self.id).values(
                     data).returning(self.__table__)
         else:
@@ -118,9 +108,19 @@ class BaseModel(object):
                     data).returning(self.__table__)
         try:
             result = await connection.fetchrow(str(stmt.compile(compile_kwargs={ 'literal_binds': True })))
-            self.__dict__.update(dict(result))
+            return self.__dict__.update(dict(result))
         except Exception as e:
             print('\nupdate {} exception: {}\n'.format(self.__table__, type(e).__name__))
+            raise
+
+    async def delete(self, connection):
+        stmt = self.__table__.delete().where(self.__table__.c.id == self.id)
+        try:
+            await connection.execute(str(stmt.compile(compile_kwargs={ 'literal_binds': True })))
+            del self
+            return
+        except Exception as e:
+            print('\ndelete {} exception: {}\n'.format(self.__table__, e))
             raise
 
     async def clean_data(self):

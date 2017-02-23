@@ -4,7 +4,9 @@ import arrow
 import asyncpg
 import pytest
 import random
+import sqlalchemy as sa
 from sqlalchemy import and_
+from sqlalchemy.exc import IntegrityError
 
 from bonham.constants import PrivacyStatus
 from bonham.db import create_tables
@@ -16,6 +18,10 @@ def test_basemodel(testmodel):
     assert hasattr(testmodel, 'created')
     assert hasattr(testmodel, 'last_updated')
     assert hasattr(testmodel, 'privacy')
+    assert hasattr(testmodel, 'create')
+    assert hasattr(testmodel, 'get')
+    assert hasattr(testmodel, 'update')
+    assert hasattr(testmodel, 'delete')
 
 
 def test_create_tables(testmodel):
@@ -61,15 +67,22 @@ async def test_model_get(testmodel):
 
 @pytest.mark.asyncio
 async def test_model_update(testmodel):
-    _id = random.randint(1, 5000)
+    _id = random.randint(1, 10000)
     privacy = PrivacyStatus(random.randint(1, 7))
     model = testmodel(id=_id, privacy=privacy)
     async with asyncpg.create_pool(dsn=DSN) as pool:
         async with pool.acquire() as connection:
-            await model.update(connection)
-            assert timedelta(seconds=0) <= (arrow.utcnow() - arrow.get(model.last_updated)) <= timedelta(seconds=5)
-            assert model.privacy == privacy.value
-            assert PrivacyStatus(model.privacy) == privacy
+            exists = len(list(await model.get(connection, where=sa.text(f"{model.__table__.c.id}={model.id}"))))
+            if exists > 0:
+                await model.update(connection)
+                assert timedelta(seconds=0) <= (arrow.utcnow() - arrow.get(model.last_updated)) <= timedelta(seconds=5)
+                assert model.privacy == privacy.value
+                assert PrivacyStatus(model.privacy) == privacy
+            else:
+                with pytest.raises(IntegrityError) as ex_info:
+                    await model.update(connection)
+                print(f"ex_info {ex_info.value}")
+                assert f'update testmodel error. record with id = {model.id} not found.' in str(ex_info.value)
 
 
 @pytest.mark.asyncio

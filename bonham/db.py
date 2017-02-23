@@ -2,6 +2,7 @@ import arrow
 import sqlalchemy as sa
 import sqlamp
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 
@@ -93,7 +94,7 @@ class BaseModel(object):
             return ({ key: value for key, value in row.items() } for row in await
             connection.fetch(statement))
         except Exception as e:
-            print(f"get {self.__table__}s exception: {type(e).__name__} -> {e}")
+            print(f"get {self.__table__}s exception: {type(e).__name__}: {e}")
             raise
 
     async def update(self, connection, key=None):
@@ -101,16 +102,16 @@ class BaseModel(object):
         data = { key: value for key, value in self.__dict__.items() if key in self.__table__.c.keys() and value is not
                  None }
         if key is None:
-            stmt = self.__table__.update().where(self.__table__.c.id == self.id).values(
-                    data).returning(self.__table__)
-        else:
-            stmt = self.__table__.update().where(self.__table__.c[key] == self.__dict__[key]).values(
+            key = 'id'
+        stmt = self.__table__.update().where(self.__table__.c[key] == self.__dict__[key]).values(
                     data).returning(self.__table__)
         try:
             result = await connection.fetchrow(str(stmt.compile(compile_kwargs={ 'literal_binds': True })))
             return self.__dict__.update(dict(result))
+        except TypeError:
+            raise IntegrityError(f"update {self.__table__} error. record with {key} = {self.__dict__[key]} not found.")
         except Exception as e:
-            print('\nupdate {} exception: {}\n'.format(self.__table__, type(e).__name__))
+            print(f"update {self.__table__} exception: {type(e).__name__}: {e.value}", flush=True)
             raise
 
     async def delete(self, connection):

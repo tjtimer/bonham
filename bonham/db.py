@@ -27,7 +27,7 @@ def ForeignKey(related, ondelete=None, onupdate=None, primary_key=None):
         onupdate = "CASCADE"
     if primary_key is None:
         primary_key = True
-    return sa.Column(sa.Integer, sa.ForeignKey('{}.id'.format(related), ondelete=ondelete, onupdate=onupdate),
+    return sa.Column(sa.Integer, sa.ForeignKey(f"{related}.id", ondelete=ondelete, onupdate=onupdate),
                      primary_key=primary_key)
 
 

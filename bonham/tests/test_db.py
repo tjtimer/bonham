@@ -1,10 +1,9 @@
-from datetime import timedelta
-
 import arrow
 import asyncpg
 import hypothesis.strategies as st
 import pytest
 import random
+from datetime import timedelta
 from hypothesis import given
 from sqlalchemy.exc import IntegrityError
 
@@ -122,8 +121,8 @@ def test_model_update(my_loop, testmodel, id, privacy):
 
 
 @given(id=st.integers(min_value=1, max_value=20000))
-def test_model_delete_2(my_loop, testmodel, id):
-    async def _test_model_delete_2(model):
+def test_model_delete(my_loop, testmodel, id):
+    async def _test_model_delete(model):
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
                 await model.delete(connection)
@@ -131,4 +130,34 @@ def test_model_delete_2(my_loop, testmodel, id):
                 assert len(list(del_model)) == 0
 
     model = testmodel(id=id)
-    my_loop.run_until_complete(_test_model_delete_2(model))
+    my_loop.run_until_complete(_test_model_delete(model))
+
+
+@given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7))
+def test_clean_data(my_loop, testmodel, id, privacy):
+    async def _test_clean_data(model):
+        clean_data = await model.clean_data()
+        assert arrow.utcnow().replace(hours=-1).humanize() in clean_data['created']
+        assert arrow.utcnow().humanize() in clean_data['last_updated']
+        assert PrivacyStatus(privacy).label in clean_data['privacy']
+
+    model = testmodel(id=id, privacy=privacy)
+    model.created = arrow.utcnow().replace(hours=-1)
+    model.last_updated = arrow.utcnow()
+    my_loop.run_until_complete(_test_clean_data(model))
+
+
+@given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7),
+       hours=st.integers(min_value=1, max_value=1000))
+def test_serialized(my_loop, testmodel, id, privacy, hours):
+    async def _test_serialized(model):
+        serialized_data = await model.serialized()
+        assert type(serialized_data).__name__ == 'dict'
+        assert arrow.utcnow().replace(hours=-hours).humanize() in serialized_data['created']
+        assert arrow.utcnow().humanize() in serialized_data['last_updated']
+        assert PrivacyStatus(privacy).label in serialized_data['privacy']
+
+    model = testmodel(id=id, privacy=privacy)
+    model.created = arrow.utcnow().replace(hours=-hours)
+    model.last_updated = arrow.utcnow()
+    my_loop.run_until_complete(_test_serialized(model))

@@ -2,15 +2,18 @@ from datetime import timedelta
 
 import arrow
 import asyncpg
+import hypothesis.strategies as st
 import pytest
 import random
-import sqlalchemy as sa
-from sqlalchemy import and_
+from hypothesis import given
 from sqlalchemy.exc import IntegrityError
 
 from bonham.constants import PrivacyStatus
 from bonham.db import create_tables
 from bonham.settings import DSN
+
+
+# TODO integrate hypothesis
 
 
 def test_basemodel(testmodel):
@@ -57,40 +60,75 @@ async def test_model_create_performance(testmodel):
 
 
 @pytest.mark.asyncio
-async def test_model_get(testmodel):
-    async with asyncpg.create_pool(dsn=DSN) as pool:
-        async with pool.acquire() as connection:
-            models = await testmodel().get(connection, where=and_(testmodel.__table__.c.id == 1))
-            assert type(models).__name__ == 'generator'
-            assert arrow.get(list(models)[0]['created']) <= arrow.utcnow()
-
-
-@pytest.mark.asyncio
-async def test_model_update(testmodel):
-    _id = random.randint(1, 10000)
-    privacy = PrivacyStatus(random.randint(1, 7))
-    model = testmodel(id=_id, privacy=privacy)
-    async with asyncpg.create_pool(dsn=DSN) as pool:
-        async with pool.acquire() as connection:
-            exists = len(list(await model.get(connection, where=sa.text(f"{model.__table__.c.id}={model.id}"))))
-            if exists > 0:
-                await model.update(connection)
-                assert timedelta(seconds=0) <= (arrow.utcnow() - arrow.get(model.last_updated)) <= timedelta(seconds=5)
-                assert model.privacy == privacy.value
-                assert PrivacyStatus(model.privacy) == privacy
-            else:
-                with pytest.raises(IntegrityError) as ex_info:
-                    await model.update(connection)
-                print(f"ex_info {ex_info.value}")
-                assert f'update testmodel error. record with id = {model.id} not found.' in str(ex_info.value)
-
-
-@pytest.mark.asyncio
-async def test_model_delete(testmodel):
-    _id = random.randint(1, 5000)
+async def test_model_get(testmodel, _id):
     model = testmodel(id=_id)
     async with asyncpg.create_pool(dsn=DSN) as pool:
         async with pool.acquire() as connection:
-            await model.delete(connection)
-            del_model = await model.get(connection, where=and_(model.__table__.c.id == _id))
-            assert len(list(del_model)) is 0
+            models = await model.get(connection, where=f"id={_id}")
+            assert type(models).__name__ == 'generator'
+            _list = list(models)
+            if len(_list) > 0:
+                assert arrow.get(_list[0]['created']) <= arrow.utcnow()
+
+
+@pytest.mark.asyncio
+async def test_model_get_with_kwargs(testmodel):
+    model = testmodel()
+    fields = 'id,privacy,last_updated'
+    where = f"last_updated IS NOT NULL AND privacy IN (1, 2, 3, 4)"
+    order_by = 'last_updated'
+    limit = random.randint(1, 50)
+    offset = 0
+    offset2 = offset + limit
+    async with asyncpg.create_pool(dsn=DSN) as pool:
+        async with pool.acquire() as connection:
+            models_page1 = await model.get(connection, fields=fields, where=where, limit=limit, order_by=order_by,
+                                           offset=offset)
+            models_page2 = await model.get(connection, fields=fields, where=where, limit=limit, order_by=order_by,
+                                           offset=offset2)
+            assert all(type(result).__name__ == 'generator' for result in [models_page1, models_page2])
+            page1 = list(models_page1)
+            page2 = list(models_page2)
+            both = page1 + page2
+            assert len(page1) <= limit
+            assert len(page2) <= limit
+            if len(page1) > 0:
+                assert all(type(item).__name__ == 'dict' for item in both)
+                assert all(item['privacy'] <= 4 for item in both)
+                assert all('created' not in item.keys() for item in both)
+                assert len(list({ model['id']: model for model in both })) is len(both)
+                if len(page2) > 0:
+                    assert arrow.get(page1[-1]['last_updated']) <= arrow.get(page2[0]['last_updated'])
+
+
+@given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7))
+def test_model_update(my_loop, testmodel, id, privacy):
+    async def _test_model_update(model):
+        async with asyncpg.create_pool(dsn=DSN) as pool:
+            async with pool.acquire() as connection:
+                exists = len(list(await model.get(connection, where=f"id={id}")))
+                if exists > 0:
+                    await model.update(connection)
+                    assert timedelta(seconds=0) <= (arrow.utcnow() - arrow.get(model.last_updated)) <= timedelta(
+                        seconds=5)
+                    assert model.privacy == privacy
+                else:
+                    with pytest.raises(IntegrityError) as ex_info:
+                        await model.update(connection)
+                    assert f"Update testmodel error. Record with id = {id} not found." in str(ex_info.value)
+
+    model = testmodel(id=id, privacy=PrivacyStatus(privacy))
+    my_loop.run_until_complete(_test_model_update(model))
+
+
+@given(id=st.integers(min_value=1, max_value=20000))
+def test_model_delete_2(my_loop, testmodel, id):
+    async def _test_model_delete_2(model):
+        async with asyncpg.create_pool(dsn=DSN) as pool:
+            async with pool.acquire() as connection:
+                await model.delete(connection)
+                del_model = await model.get(connection, where=f"id={id}")
+                assert len(list(del_model)) == 0
+
+    model = testmodel(id=id)
+    my_loop.run_until_complete(_test_model_delete_2(model))

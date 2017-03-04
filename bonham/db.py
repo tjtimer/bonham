@@ -6,8 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 
-from .constants import PrivacyStatus
-from .settings import DSN
+from bonham.constants import PrivacyStatus
+from bonham.settings import DSN
 
 Base = declarative_base(metaclass=sqlamp.DeclarativeMeta)
 
@@ -38,7 +38,7 @@ class BaseModel(object):
 
     @declared_attr
     def id(self):
-        return sa.Column(sa.Integer, primary_key=True, autoincrement=True, unique=True)
+        return sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
 
     @declared_attr
     def last_updated(self):

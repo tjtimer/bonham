@@ -3,7 +3,7 @@ from aiohttp import web
 from bonham.bonham_user.handler import delete_user, get_friends, get_user, get_users, request_friendship, update_user
 
 
-def setup_routes(router):
+async def setup_routes(router):
     router.add_get(r'/', get_users, name='get-users')
     router.add_get(r'/{id}/', get_user, name='get-user')
     router.add_put(r'/{id}/', update_user, name='update-user')
@@ -13,5 +13,7 @@ def setup_routes(router):
     router.add_post(r'/{user_id}/friends/{id}/', request_friendship, name='request-friendship')
 
 
-app = web.Application()
-setup_routes(app.router)
+async def init_user(loop=None):
+    app = web.Application(loop=loop)
+    await setup_routes(app.router)
+    return app

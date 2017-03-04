@@ -27,3 +27,5 @@ sdist/
 /bonham/local_settings.py
 /rsa/self_signed/
 /.cache/
+/rsa/cacert.pem
+/rsa/privkey.pem

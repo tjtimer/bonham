@@ -1,9 +1,8 @@
-from bonham.bonham_api.v1 import app as json_api
-from bonham.settings import ASSETS_DIR, ASSETS_URL
+from bonham.bonham_api.v1 import init_api
 from bonham.views import index
 
 
-def setup(router):
+async def setup(app):
     """
     filling router table with 
     routes: ('route', handler, name)
@@ -14,10 +13,10 @@ def setup(router):
       ...
       or using router.add_route('method', 'route', handler, name=name) 
     
-    :param router: app.router instance
+    :param app: app.router instance
     :type router: <class 'aiohttp.web_urldispatcher.UrlDispatcher'>
     :return: None
     """
-    router.add_static(ASSETS_URL, path=ASSETS_DIR)
-    router.add_get('/', index, name='ìndex')
-    router.add_subapp('/api/v1/', json_api)
+    app.add_subapp('/api/v1', await init_api(loop=app.loop))
+    # app.router.add_static(ASSETS_URL, path=ASSETS_DIR)
+    app.router.add_get('/', index, name='ìndex')

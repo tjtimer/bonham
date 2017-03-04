@@ -3,9 +3,11 @@ from aiohttp import web
 from bonham.bonham_calendar.handler import get_calendars
 
 
-def setup_routes(router):
+async def setup_routes(router):
     router.add_get('/calendars/', get_calendars, name='get-calendars')
 
 
-app = web.Application()
-setup_routes(app.router)
+async def init_calendar(loop=None):
+    app = web.Application(loop=loop)
+    await setup_routes(app.router)
+    return app

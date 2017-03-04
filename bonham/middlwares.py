@@ -36,16 +36,14 @@ async def data_middleware(app, handler):
 
 
 async def engine_middleware(app, handler):
+
     async def db_engine_handler(request):
-        if 'assets' in request.path:
-            response = await handler(request)
-            return response
         try:
             async with app['db'].acquire() as request['connection']:
-                response = await handler(request)
-            return response
+                async with request['connection'].transaction():
+                    return await handler(request)
         except Exception as e:
-            print('\n\nengine middleware exception:\n\t{}\n\t{}'.format(type(e).__name__, e), flush=True)
+            print('\n\ndb engine middleware exception:\n\t{}\n\t{}'.format(type(e).__name__, e), flush=True)
             response = {
                 'message': {
                     'type': 'error',

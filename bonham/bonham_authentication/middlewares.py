@@ -1,9 +1,8 @@
-from bonham.bonham_authentication.token import Token
+from bonham.bonham_authentication import token
 from bonham.bonham_user.models import User
 
 
 async def auth_middleware(app, handler):
-    token = Token()
 
     async def au_middleware_handler(request):
         auth_token = request.headers.get('AUTH-TOKEN')

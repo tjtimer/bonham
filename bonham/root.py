@@ -1,34 +1,60 @@
-import asyncio
-import logging
-
 import aiohttp_jinja2
+import asyncio
 import asyncpg
 import jinja2
-import uvloop
-from aiohttp import web
+import logging
+from aiohttp import WSCloseCode, web
+from bonham_authentication.middlewares import auth_middleware
+from middlwares import data_middleware, engine_middleware, error_middleware
 from uvloop import EventLoopPolicy
 
 from bonham import router
-from bonham.bonham_authentication.middlewares import auth_middleware
-from bonham.middlwares import data_middleware, engine_middleware, error_middleware
-from bonham.settings import DEBUG, DSN, HOST, LOG_FILE, LOG_FORMAT, LOG_LEVEL, PORT, TEMPLATE_DIR
+from bonham.settings import DEBUG, DSN, LOG_FILE, LOG_FORMAT, LOG_LEVEL, TEMPLATE_DIR
 
-# Ultra fast implementation of asyncio event loop on top of libuv.
-# see https://github.com/MagicStack/uvloop
 asyncio.set_event_loop_policy(EventLoopPolicy())
 
 
-async def init_app(loop=None):
-    # init web.Application
+async def startup(app):
+    print(
+            f"\nstartup called with ->\napp:\t{app.__dict__}\nhandler:\t{app['handler'].__dict__}\napp:\t{app["
+            f"'server'].__dict__}")
+
+
+async def prepare_response(request, response):
+    if 'assets' not in request.path:
+        response.charset = 'utf-8'
+        response.cookies.clear()
+
+
+async def shutdown(app: web.Application):
+    app['server'].close()
+    await app['db'].close()
+    for key, ws in app['wss'].items():
+        await ws.close(code=WSCloseCode.GOING_AWAY,
+                       message='Server shutdown')
+        del app['wss'][key]
+    await app['server'].wait_closed()
+    await app.shutdown()
+    await app['handler'].shutdown(60)
+    await app.cleanup()
+
+
+async def init_app(loop=None) -> web.Application:
+    # inititialize web.Application
     app = web.Application(middlewares=[
-        auth_middleware,
         engine_middleware,
+        auth_middleware,
         data_middleware,
         error_middleware
     ], loop=loop, debug=DEBUG)
-    app['db'] = await asyncpg.create_pool(dsn=DSN, loop=loop)
+
     # filling the router table
-    router.setup(app.router)
+    await router.setup(app)
+
+    # listening to app signals
+    # app.on_startup.append(startup)
+    # app.on_response_prepare.append(prepare_response)
+    # app.on_cleanup.append(cleanup)
 
     # configure app logger
     app.logger = logging.getLogger('bonham.root')
@@ -41,23 +67,25 @@ async def init_app(loop=None):
     # init jinja2 template engine
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(TEMPLATE_DIR))
 
+    app['db'] = await asyncpg.create_pool(dsn=DSN, loop=loop, command_timeout=60)
+    app['wss'] = { }
+    app['auth_users'] = { }
     # HTTP protocol factory for handling requests
-    secure_proxy_ssl_header = ('X-Forwarded-Proto', 'https')
-    app.make_handler(secure_proxy_ssl_header=secure_proxy_ssl_header)
-    return app
-
-
-def create_app(loop=None):
-    if loop is None:
-        loop = uvloop.new_event_loop()
-        asyncio.set_event_loop(loop)
-    app = loop.run_until_complete(init_app(loop=loop))
-    app.logger.debug('started application')
+    secure_proxy_ssl_header = ('X-FORWARDED-FOR', 'https')
+    app['handler'] = app.make_handler(secure_proxy_ssl_header=secure_proxy_ssl_header)
+    app['server'] = await loop.create_server(app['handler'], '127.0.0.1', 9090)
+    print("server is up and running at localhost on port 9090.", flush=True)
+    app.logger.debug(f"{'*'*10} server running at {app['server']} {'*'*10}")
     return app
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     app = loop.run_until_complete(init_app(loop=loop))
-    app.logger.debug(f'started application:\n\t{app.__dict__}')
-    web.run_app(app, host=HOST, port=PORT)
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.run_until_complete(shutdown(app))
+        loop.close()

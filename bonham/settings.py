@@ -1,15 +1,14 @@
-import logging
 import socket
 
+import logging
 import os
-
 from bonham.local_settings import LOCAL_DSN
-from bonham.middlwares import data_middleware, engine_middleware, error_middleware
 
 HOST = 'localhost'
 PORT = 8080
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_FILE = os.path.join(BASE_DIR, 'bonham', 'root.py')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'bonham', 'templates')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'public', 'media')
 ASSETS_DIR = os.path.join(BASE_DIR, 'public', 'assets')
@@ -23,11 +22,7 @@ LOG_FORMAT = '%(asctime)s\t%(name)s - %(levelname)s\n' \
 
 DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if it is not
 
-INSTALLED_MIDDLEWARES = [
-    engine_middleware,
-    data_middleware,
-    error_middleware
-]
+INSTALLED_MIDDLEWARES = []
 
 RSA_DIR = os.path.join(BASE_DIR, 'rsa/self_signed')
 RSA_PEM = os.path.join(RSA_DIR, 'rsa.pem')

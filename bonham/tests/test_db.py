@@ -102,7 +102,8 @@ async def test_model_get_with_kwargs(testmodel):
 
 @given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7))
 def test_model_update(my_loop, testmodel, id, privacy):
-    async def _test_model_update(model):
+    async def _test_model_update():
+        model = testmodel(id=id, privacy=PrivacyStatus(privacy))
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
                 exists = len(list(await model.get(connection, where=f"id={id}")))
@@ -116,48 +117,48 @@ def test_model_update(my_loop, testmodel, id, privacy):
                         await model.update(connection)
                     assert f"Update testmodel error. Record with id = {id} not found." in str(ex_info.value)
 
-    model = testmodel(id=id, privacy=PrivacyStatus(privacy))
-    my_loop.run_until_complete(_test_model_update(model))
+    my_loop.run_until_complete(_test_model_update())
 
 
 @given(id=st.integers(min_value=1, max_value=20000))
 def test_model_delete(my_loop, testmodel, id):
-    async def _test_model_delete(model):
+    async def _test_model_delete():
+        model = testmodel(id=id)
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
                 await model.delete(connection)
                 del_model = await model.get(connection, where=f"id={id}")
                 assert len(list(del_model)) == 0
 
-    model = testmodel(id=id)
-    my_loop.run_until_complete(_test_model_delete(model))
+    my_loop.run_until_complete(_test_model_delete())
 
 
-@given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7))
-def test_clean_data(my_loop, testmodel, id, privacy):
-    async def _test_clean_data(model):
+@given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7),
+       hours=st.integers(min_value=1, max_value=1000))
+def test_clean_data(my_loop, testmodel, id, privacy, hours):
+    async def _test_clean_data():
+        model = testmodel(id=id, privacy=privacy)
+        model.created = created = arrow.utcnow().replace(hours=-hours)
+        model.last_updated = last_updated = arrow.utcnow()
         clean_data = await model.clean_data()
-        assert arrow.utcnow().replace(hours=-1).humanize() in clean_data['created']
-        assert arrow.utcnow().humanize() in clean_data['last_updated']
+        assert created.humanize() in clean_data['created']
+        assert last_updated.humanize() in clean_data['last_updated']
         assert PrivacyStatus(privacy).label in clean_data['privacy']
 
-    model = testmodel(id=id, privacy=privacy)
-    model.created = arrow.utcnow().replace(hours=-1)
-    model.last_updated = arrow.utcnow()
-    my_loop.run_until_complete(_test_clean_data(model))
+    my_loop.run_until_complete(_test_clean_data())
 
 
 @given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7),
        hours=st.integers(min_value=1, max_value=1000))
 def test_serialized(my_loop, testmodel, id, privacy, hours):
-    async def _test_serialized(model):
+    async def _test_serialized():
+        model = testmodel(id=id, privacy=privacy)
+        model.created = created = arrow.utcnow().replace(hours=-hours)
+        model.last_updated = last_updated = arrow.utcnow()
         serialized_data = await model.serialized()
         assert type(serialized_data).__name__ == 'dict'
-        assert arrow.utcnow().replace(hours=-hours).humanize() in serialized_data['created']
-        assert arrow.utcnow().humanize() in serialized_data['last_updated']
+        assert created.humanize() in serialized_data['created']
+        assert last_updated.humanize() in serialized_data['last_updated']
         assert PrivacyStatus(privacy).label in serialized_data['privacy']
 
-    model = testmodel(id=id, privacy=privacy)
-    model.created = arrow.utcnow().replace(hours=-hours)
-    model.last_updated = arrow.utcnow()
-    my_loop.run_until_complete(_test_serialized(model))
+    my_loop.run_until_complete(_test_serialized())

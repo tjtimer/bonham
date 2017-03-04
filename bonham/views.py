@@ -1,11 +1,10 @@
-import aiohttp_jinja2
+from aiohttp_jinja2 import template
 
 
+@template('index.html')
 async def index(request):
-    response = aiohttp_jinja2.render_template('index.html',
-                                              request,
-                                              {
-                                                  'title': 'Bonham',
-                                                  'lang': 'de_DE'
-                                              })
-    return response
+    print(f"Index page was requested.\nrequest:\t{request}")
+    return {
+        'title': 'Bonham',
+        'lang': 'de_DE'
+    }

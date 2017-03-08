@@ -13,17 +13,17 @@ scripts:
  with most of the boilerplate necessary.
 
 >use:
-    ```
-    $bonham-create-app
-    >>>create a new app. Type: CTR+C to cancel.
-    ```
+```
+$bonham-create-app
+>>>create a new app. Type: CTR+C to cancel.
+```
 
 
 #### bonham-dev-server
 >Runs a file watcher and your server and restarts when a file was saved.
 
 >use:
-    ```
-    $bonham-dev-server
-    >>>dev-server is running. Type CTRL+C to cancel.
-    ```
+```
+$bonham-dev-server
+>>>dev-server is running. Type CTRL+C to cancel.
+```

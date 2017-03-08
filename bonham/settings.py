@@ -1,6 +1,7 @@
 import logging
 import os
 import socket
+
 from bonham.local_settings import LOCAL_DSN
 
 HOST = 'localhost'
@@ -16,7 +17,7 @@ ASSETS_DIR = os.path.join(BASE_DIR, 'public', 'assets')
 ASSETS_URL = '/assets'
 MEDIA_URL = '/media'
 
-LOG_FILE = os.path.join(BASE_DIR, 'logs', 'app.log')
+LOG_FILE = os.path.join(BASE_DIR, 'logs', 'server.log')
 LOG_FORMAT = '%(asctime)s\t%(name)s - %(levelname)s\n' \
              '\t-\t%(pathname)s - %(filename)s - %(funcName)s\n' \
              '\t-\t%(message)s'

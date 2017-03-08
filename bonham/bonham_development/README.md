@@ -1,6 +1,8 @@
 # ***BONHAM DEVELOPMENT***
-###### a totally opinionated web app development toolkit
+###### a totally opinionated web app development toolkit for the bonham server
 ---
+
+requires: [Bonham](../README.md)
 
 scripts:
 * [bonham-create-app](#bonham-create-app)

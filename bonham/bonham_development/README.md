@@ -17,7 +17,7 @@ scripts:
 >use:
 ```
 $bonham-create-app
->>>create a new app. Type: CTR+C to cancel.
+>>>>create a new app. Type: CTR+C to cancel.
 ```
 
 
@@ -27,5 +27,5 @@ $bonham-create-app
 >use:
 ```
 $bonham-dev-server
->>>dev-server is running. Type CTRL+C to cancel.
+>>>>dev-server is running. Type CTRL+C to cancel.
 ```

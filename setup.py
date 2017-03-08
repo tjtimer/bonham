@@ -8,7 +8,10 @@ setup(
         author='tjtimer',
         author_email='tjtimer@gmail.com',
         license='MIT',
-        packages=['bonham'],
+        packages=['bonham', 'bonham/bonham_development'],
+        entry_points={
+            'console_scripts': ['bonham-create-app=bonham.bonham_development.create_app:main'],
+        },
         zip_safe=False,
         install_requires=[
             'aiohttp',

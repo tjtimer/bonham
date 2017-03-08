@@ -10,19 +10,26 @@ async def error_middleware(app, handler):
             response = await handler(request)
             return response
         except HTTPNotFound as e:
-            print(f"HTTPNotFound: {e}\nrequest.raw_path: {request.raw_path}")
+            print(f"HTTPNotFound: {e}\nrequest.raw_path: {request.raw_path}", flush=True)
             return HTTPFound('/', headers={ 'REDIRECT': request.raw_path })
         except Exception as e:
+            print(f"Exception at error_middleware\n\t{type(e).__name__}: {e}")
             app.logger.debug('\trequest error: {}\n\trequest:\n\t{}\n\targs:\n\t{}\n'.format(
                     type(e).__name__,
                     request.__dict__,
                     [arg for arg in e.args]))
-            return web.json_response({ 'message': { 'type': 'error', 'message': e.__str__() } }, status=400)
+            return web.json_response({
+                'message': {
+                    'type': 'error',
+                    'message': f"{type(e).__name__}: {e}"
+                }
+            }, status=400)
 
     return er_middleware_handler
 
 
 async def data_middleware(app, handler):
+    print(f"data middleware:\n\tapp:{app}\nm\thandler: {handler}", flush=True)
     async def da_middleware_handler(request):
 
         if any(request.method in method for method in ['POST', 'PUT', 'PATCH']):

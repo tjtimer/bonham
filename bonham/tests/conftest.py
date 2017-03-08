@@ -2,11 +2,10 @@
 # place py.test fixtures here
 
 # if aiohttp.pytest_plugin is not installed, this provides the same functionality
-import asyncio
 import pytest
-import uvloop
 
 from bonham.db import Base, BaseModel
+from bonham.utils import prepared_uvloop
 
 pytest_plugins = 'aiohttp.pytest_plugin'
 
@@ -23,9 +22,4 @@ def testmodel():
 
 @pytest.fixture
 def my_loop():
-    loop = asyncio.get_event_loop()
-    if loop.is_closed():
-        loop = uvloop.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop
-
+    return prepared_uvloop(debug=True)

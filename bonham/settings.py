@@ -1,14 +1,15 @@
-import socket
-
 import logging
 import os
+import socket
 from bonham.local_settings import LOCAL_DSN
 
 HOST = 'localhost'
 PORT = 8080
 
+SERVER_NAME = 'bonham'
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROOT_FILE = os.path.join(BASE_DIR, 'bonham', 'root.py')
+SERVER_ROOT = os.path.join(BASE_DIR, SERVER_NAME)
+ROOT_FILE = os.path.join(SERVER_ROOT, 'root.py')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'bonham', 'templates')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'public', 'media')
 ASSETS_DIR = os.path.join(BASE_DIR, 'public', 'assets')

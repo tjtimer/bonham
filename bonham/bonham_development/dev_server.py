@@ -4,17 +4,18 @@ Author: Tim Jedro
 Version: 0.0.1a1 protocol based
 
 """
-import arrow
 import asyncio
 import datetime
-import os
 import signal
-import uvloop
 from asyncio import Task
-from concurrent.futures import ProcessPoolExecutor
+
+import arrow
+import os
+import uvloop
 from pathlib import Path
 
 from bonham.settings import BASE_DIR
+from bonham.utils import prepared_uvloop
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -57,7 +58,7 @@ class MySubProtocol(asyncio.SubprocessProtocol):
         self.exit.set_result(True)
 
 
-async def file_watcher(*, loop=None):
+async def file_watcher():
     while True:
         await asyncio.sleep(0.5)
         changed_files = { pyfile.name for pyfile in Path(BASE_DIR).glob('**/*.py')
@@ -69,16 +70,17 @@ async def file_watcher(*, loop=None):
 
 async def server(*, loop=None):
     exit_a = asyncio.Future(loop=loop)
-    fw = asyncio.ensure_future(file_watcher(loop=loop), loop=loop)
+    fw = asyncio.ensure_future(file_watcher(), loop=loop)
     sub_a_transport, sub_a_protocol = await loop.subprocess_shell(
             lambda: MySubProtocol(exit_a),
-            f"clear && python root.py",
+            f"python root.py",
     )
     await asyncio.sleep(0.5)
-    print('#' * 40)
+    hash_count = max([len(f"sub_a_transport: {sub_a_transport}"), len(f"sub_a_protocol: {sub_a_protocol}")])
+    print('#' * hash_count)
     print(f"sub_a_transport: {sub_a_transport}")
     print(f"sub_a_protocol: {sub_a_protocol}")
-    print('#' * 40)
+    print('#' * hash_count)
     while not fw.done():
         data = sub_a_protocol.read()
         if data:
@@ -91,29 +93,13 @@ async def server(*, loop=None):
     return main()
 
 
-def prepared_uvloop(*, loop=None, debug=None):
-    if loop is None or loop.is_closed():
-        loop = uvloop.new_event_loop()
-        asyncio.set_event_loop(loop)
-    if debug:
-        loop.set_debug(True)
-    loop.set_default_executor(ProcessPoolExecutor())
-    return loop
-
-
 def main():
     loop = prepared_uvloop(debug=True)
     try:
         loop.run_until_complete(server(loop=loop))
     except KeyboardInterrupt:
-        print(f"KeyboardInterrupt at main()")
         for task in Task.all_tasks():
             task.cancel()
-        pass
-    finally:
-        print(f"main finally")
-        loop.close()
-
 
 if __name__ == '__main__':
     main()

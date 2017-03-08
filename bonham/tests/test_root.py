@@ -6,12 +6,12 @@ from bonham.root import init_app
 
 class TestRoot(AioHTTPTestCase):
     async def get_application(self, loop):
-        app = await init_app(loop=loop)
+        app = await init_app(loop=loop, port=9093)
         return app
 
     @unittest_run_loop
     async def test_app(self):
-        assert self.app.logger == logging.getLogger('bonham.root')
+        assert self.app.logger == logging.getLogger('bonham.server')
         assert all(key in self.app.keys() for key in
                    ['server', 'handler', 'db', 'wss', 'auth_users', 'aiohttp_jinja2_environment'])
 

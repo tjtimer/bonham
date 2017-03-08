@@ -1,23 +1,20 @@
-import aiohttp_jinja2
 import asyncio
+from asyncio import Task
+
+import aiohttp_jinja2
 import asyncpg
 import jinja2
 import logging
 from aiohttp import WSCloseCode, web
-from bonham_authentication.middlewares import auth_middleware
-from middlwares import data_middleware, engine_middleware, error_middleware
 from uvloop import EventLoopPolicy
 
 from bonham import router
+from bonham.bonham_authentication.middlewares import auth_middleware
+from bonham.middlwares import data_middleware, engine_middleware, error_middleware
 from bonham.settings import DEBUG, DSN, LOG_FILE, LOG_FORMAT, LOG_LEVEL, TEMPLATE_DIR
+from bonham.utils import prepared_uvloop
 
 asyncio.set_event_loop_policy(EventLoopPolicy())
-
-
-async def startup(app):
-    print(
-            f"\nstartup called with ->\napp:\t{app.__dict__}\nhandler:\t{app['handler'].__dict__}\napp:\t{app["
-            f"'server'].__dict__}")
 
 
 async def prepare_response(request, response):
@@ -37,9 +34,12 @@ async def shutdown(app: web.Application):
     await app.shutdown()
     await app['handler'].shutdown(60)
     await app.cleanup()
+    for task in Task.all_tasks():
+        task.cancel()
+    loop.stop()
 
 
-async def init_app(loop=None) -> web.Application:
+async def init_app(loop: asyncio.BaseEventLoop = None, port: int = None) -> web.Application:
     # inititialize web.Application
     app = web.Application(middlewares=[
         engine_middleware,
@@ -47,7 +47,8 @@ async def init_app(loop=None) -> web.Application:
         data_middleware,
         error_middleware
     ], loop=loop, debug=DEBUG)
-
+    if port is None:
+        port = 9091
     # filling the router table
     await router.setup(app)
 
@@ -57,7 +58,7 @@ async def init_app(loop=None) -> web.Application:
     # app.on_cleanup.append(cleanup)
 
     # configure app logger
-    app.logger = logging.getLogger('bonham.root')
+    app.logger = logging.getLogger('bonham.server')
     formatter = logging.Formatter(LOG_FORMAT)
     log_file = logging.FileHandler(LOG_FILE)
     log_file.setFormatter(formatter)
@@ -73,19 +74,21 @@ async def init_app(loop=None) -> web.Application:
     # HTTP protocol factory for handling requests
     secure_proxy_ssl_header = ('X-FORWARDED-FOR', 'https')
     app['handler'] = app.make_handler(secure_proxy_ssl_header=secure_proxy_ssl_header)
-    app['server'] = await loop.create_server(app['handler'], '127.0.0.1', 9090)
-    print("server is up and running at localhost on port 9090.", flush=True)
-    app.logger.debug(f"{'*'*10} server running at {app['server']} {'*'*10}")
+    app['server'] = await loop.create_server(app['handler'], 'localhost', port)
+    print(f"server is now running at localhost on port {port}.", flush=True)
+    app.logger.debug(f"{'*'*10} server is running {'*'*10}\n\tserver: {app['server']}\n\thandler: {app['handler']}")
     return app
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    app = loop.run_until_complete(init_app(loop=loop))
+    loop = prepared_uvloop(debug=DEBUG)
+    app = loop.run_until_complete(init_app(loop=loop, port=9090))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
+        print("keyboardInterrupt at root")
         pass
     finally:
         loop.run_until_complete(shutdown(app))
+        loop.stop()
         loop.close()

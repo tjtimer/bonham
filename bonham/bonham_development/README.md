@@ -13,7 +13,7 @@ scripts:
  with most of the boilerplate necessary.
 
 >use:
-    ```sh
+    ```
     $bonham-create-app
     >>>create a new app. Type: CTR+C to cancel.
     ```

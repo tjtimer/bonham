@@ -13,7 +13,7 @@ scripts:
  with most of the boilerplate necessary.
 
 >use:
-    ```bash
+    ```sh
     $bonham-create-app
     >>>create a new app. Type: CTR+C to cancel.
     ```
@@ -23,7 +23,7 @@ scripts:
 >Runs a file watcher and your server and restarts when a file was saved.
 
 >use:
-    ```bash
+    ```
     $bonham-dev-server
     >>>dev-server is running. Type CTRL+C to cancel.
     ```

@@ -10,7 +10,10 @@ setup(
         license='MIT',
         packages=['bonham', 'bonham/bonham_development'],
         entry_points={
-            'console_scripts': ['bonham-create-app=bonham.bonham_development.create_app:main'],
+            'console_scripts': [
+                'bonham-create-app=bonham.bonham_development.create_app:main',
+                'bonham-dev-server=bonham.bonham_development.dev_server_s:main'
+            ],
         },
         zip_safe=False,
         install_requires=[

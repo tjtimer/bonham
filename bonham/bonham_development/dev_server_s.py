@@ -6,17 +6,15 @@ Version: 0.0.1a1 completely (uv)loop based
 """
 import asyncio
 import datetime
+import logging
 import signal
 import time
-from asyncio import Task
-
-import arrow
-import logging
-import os
+from asyncio import FIRST_COMPLETED, Task
 from pathlib import Path
 
+import arrow
+
 from bonham.bonham_development.settings import *
-from bonham.settings import ROOT_FILE
 from bonham.utils import prepared_uvloop
 
 logging.getLogger('asyncio').setLevel(logging.DEBUG)
@@ -31,7 +29,6 @@ async def modified_files(*, root_dir=None, pattern=None):
     _mf = { file.name for file in root_dir.glob(pattern)
             if (arrow.now() - arrow.get(os.stat(file).st_mtime)) <= datetime.timedelta(seconds=1) }
     return _mf
-
 
 async def file_watcher(*, root_dir=None, glob_patterns=None):
     if root_dir is None:
@@ -48,7 +45,6 @@ async def file_watcher(*, root_dir=None, glob_patterns=None):
                 print(f"modified files: {_modified_files}")
                 return
 
-
 async def process_output(proc, prefix=None):
     if prefix is None:
         prefix = "->"
@@ -56,7 +52,6 @@ async def process_output(proc, prefix=None):
         data = await proc.stdout.readline()
         if data is not b'':
             print(f"{prefix}\n{data.decode('ascii').rstrip()}\n\n")
-
 
 async def dev_server(*, loop=None):
     """
@@ -77,8 +72,13 @@ async def dev_server(*, loop=None):
         tests_child_pid = tests.pid + 1
         print(f"bonham-dev-server is running. Type CTRL+C to cancel.")
         asyncio.ensure_future(process_output(tests, prefix=f"{tests.pid} {'*'*10} ->"))
-        asyncio.ensure_future(process_output(proc, prefix=f"{proc.pid} {ROOT_FILE}: "))
-        await asyncio.wait_for(file_watcher())
+        await asyncio.wait(
+                [
+                    file_watcher(),
+                    process_output(proc, prefix=f"{proc.pid} {function_call}: "),
+                ],
+                return_when=FIRST_COMPLETED
+        )
 
         print(f"subprocess tests: {tests}")
         print(f"killing child process {child_pid}")

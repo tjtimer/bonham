@@ -1,7 +1,10 @@
 import asyncio
-from concurrent.futures import ProcessPoolExecutor
 
 import uvloop
+
+__all__ = [
+    "prepared_uvloop",
+    ]
 
 
 def prepared_uvloop(*, loop=None, debug=None):
@@ -10,5 +13,4 @@ def prepared_uvloop(*, loop=None, debug=None):
         asyncio.set_event_loop(loop)
     if debug:
         loop.set_debug(True)
-    loop.set_default_executor(ProcessPoolExecutor())
     return loop

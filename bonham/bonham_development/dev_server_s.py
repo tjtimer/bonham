@@ -8,7 +8,6 @@ import asyncio
 import datetime
 import logging
 import signal
-import time
 from asyncio import FIRST_COMPLETED, Task
 from pathlib import Path
 
@@ -20,15 +19,10 @@ from bonham.utils import prepared_uvloop
 logging.getLogger('asyncio').setLevel(logging.DEBUG)
 
 
-def sleep():
-    time.sleep(10)
-    print("10 seconds gone since start up")
-
-
 async def modified_files(*, root_dir=None, pattern=None):
-    _mf = { file.name for file in root_dir.glob(pattern)
-            if (arrow.now() - arrow.get(os.stat(file).st_mtime)) <= datetime.timedelta(seconds=1) }
-    return _mf
+    return {file.name for file in root_dir.glob(pattern)
+            if (arrow.now() - arrow.get(os.stat(file).st_mtime)) <= datetime.timedelta(seconds=1)}
+
 
 async def file_watcher(*, root_dir=None, glob_patterns=None):
     if root_dir is None:
@@ -36,7 +30,7 @@ async def file_watcher(*, root_dir=None, glob_patterns=None):
     if glob_patterns is None:
         glob_patterns = GLOB_PATTERNS
     while True:
-        #  sleep for 0.5 seconds
+        #  sleep for 1 second
         await asyncio.sleep(1)
         #  collect modified file(s)
         for pattern in glob_patterns:
@@ -88,18 +82,18 @@ async def dev_server(*, loop=None):
             print(f"killing tests: {tests.pid}")
             os.kill(tests_child_pid, signal.SIGTERM)
             tests.terminate()
-            os.kill(tests.pid, signal.SIGTERM)
+            # os.kill(tests.pid, signal.SIGTERM)
         clean_up()
         #  call main to restart the dev_server
         return main()
     except Exception as e:
         print(f"Exception {type(e).__name__} at dev_server: {e}.")
-        raise
+        return main()
 
 
 def clean_up():
     for task in Task.all_tasks():
-        print(f"\n\ntask: {task} gets cancelled.")
+        print(f"\n\ncancel task: {task}.")
         task.cancel()
 
 

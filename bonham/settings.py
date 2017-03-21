@@ -2,10 +2,12 @@ import logging
 import os
 import socket
 
-from bonham.local_settings import LOCAL_DSN
+from bonham.local_settings import LOCAL_ADMIN, LOCAL_DSN
 
 HOST = 'localhost'
 PORT = 8080
+
+ADMIN = LOCAL_ADMIN
 
 SERVER_NAME = 'bonham'
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,14 +19,14 @@ ASSETS_DIR = os.path.join(BASE_DIR, 'public', 'assets')
 ASSETS_URL = '/assets'
 MEDIA_URL = '/media'
 
-LOG_FILE = os.path.join(BASE_DIR, 'logs', 'server.log')
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+LOG_FILE = os.path.join(LOG_DIR, 'server.log')
 LOG_FORMAT = '%(asctime)s\t%(name)s - %(levelname)s\n' \
              '\t-\t%(pathname)s - %(filename)s - %(funcName)s\n' \
              '\t-\t%(message)s'
 
 DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if it is not
 
-INSTALLED_MIDDLEWARES = []
 
 RSA_DIR = os.path.join(BASE_DIR, 'rsa/self_signed')
 RSA_PEM = os.path.join(RSA_DIR, 'rsa.pem')

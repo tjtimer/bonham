@@ -39,5 +39,4 @@ class CalendarEntryReminder(Base, BaseModel):
     date_time = sa.Column(ArrowType)
     type = sa.Column(ChoiceType(ReminderType, impl=sa.Integer()))
 
-
 create_tables(models=[Calendar, Entry, CalendarEntry, CalendarEntryReminder])

@@ -2,7 +2,7 @@ import os
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-FUNCTION_CALL = "python root.py"
+FUNCTION_CALL = "python root.py 9092"
 
 IGNORED_DIRS = [
     "node_modules",

@@ -1,14 +1,6 @@
 from enum import Enum
 
 
-# from gettext import translation
-
-# from .settings import LOCALEDIR
-
-# language = translation('messages', localedir=LOCALEDIR, languages=['deDE', 'enEN'])
-# language.install()
-
-
 class UserAgentStatus(Enum):
     undefined = 1
     blocked = 2
@@ -45,8 +37,3 @@ PrivacyStatus.friends.label = (u'Friends')
 PrivacyStatus.editors.label = (u'Editors')
 PrivacyStatus.admins.label = (u'Admins')
 PrivacyStatus.private.label = (u'Private')
-
-
-class Salutations(Enum):
-    mr = 1
-    mrs = 2

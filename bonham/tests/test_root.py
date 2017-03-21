@@ -1,22 +1,26 @@
 import logging
-from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
+from asyncio.test_utils import TestCase
 
-from bonham.root import init_app
+from bonham.root import init_app, shutdown
+from bonham.utils import prepared_uvloop
 
 
-class TestRoot(AioHTTPTestCase):
-    async def get_application(self, loop):
-        app = await init_app(loop=loop, port=9093)
-        return app
+class TestRoot(TestCase):
+    def setUp(self):
+        self.loop = prepared_uvloop(debug=True)
+        self.app = self.loop.run_until_complete(init_app(loop=self.loop, port=9093))
+        print(vars(self))
 
-    @unittest_run_loop
-    async def test_app(self):
-        assert self.app.logger == logging.getLogger('bonham.server')
+    def tearDown(self):
+        print(vars(self))
+        self.loop.run_until_complete(shutdown(self.app))
+        self.loop.stop()
+        self.loop.close()
+
+    def test_app(self):
+        assert self.app.logger == logging.getLogger('bonham.log')
         assert all(key in self.app.keys() for key in
-                   ['server', 'handler', 'db', 'wss', 'auth_users', 'aiohttp_jinja2_environment'])
+                   ['server', 'db', 'auth_users', 'aiohttp_jinja2_environment'])
 
-    @unittest_run_loop
-    async def test_app_index(self):
-        response = await self.client.get('/')
-        assert response.status == 200
-        assert b'<!DOCTYPE html>' in await response.content.read()
+    def test_index(self):
+        print(vars(self.app))

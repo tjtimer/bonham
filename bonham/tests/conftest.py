@@ -20,6 +20,7 @@ def testmodel():
     return TestModel
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def my_loop():
-    return prepared_uvloop(debug=True)
+    loop = prepared_uvloop(debug=True)
+    return loop

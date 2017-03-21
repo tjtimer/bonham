@@ -1,30 +1,32 @@
+import asyncio
+
 from aiohttp import web
+from passlib.hash import pbkdf2_sha512
 from sqlalchemy.exc import IntegrityError
 
-from bonham.bonham_user.models import User
+from .models import Account
 from .token import Token
 
 
 async def sign_up(request):
-    token = Token()
-    user = User(**request['data'])
+    await asyncio.sleep(5)
+    account = Account(**request['data'])
     try:
-        await user.create(request['connection'])
-        token = await token.create(user.__dict__)
-        user_serialized = await user.serialized()
-        response = {
-            'user': user_serialized,
-            'message': {
-                'type': 'message',
-                'message': 'we send you an email with a link to verify and finish the sign up process.'
-            }
-        }
-        headers = {
-            'AUTH-TOKEN': token
-        }
-
-        _response = web.json_response(response, headers=headers)
-        return _response
+        async with request['connection'].transaction():
+            await account.create(connection=request['connection'])
+            token = await Token(loop=request.app.loop).create(payload=dict(id=account.id, email=account.email))
+            acc_serialized = await account.serialized()
+            response = {
+                'account': acc_serialized,
+                'message': {
+                    'type'   : 'message',
+                    'message': 'we send you an email with a link to verify and finish the sign up process.'
+                    }
+                }
+            headers = {
+                'AUTH-TOKEN': token
+                }
+            return web.json_response(response, headers=headers)
     except IntegrityError as e:
         response = {
             'message': {
@@ -39,35 +41,35 @@ async def sign_up(request):
 
 
 async def login(request):
-    token = Token()
+    await asyncio.sleep(5)
     try:
-        user = User(email=request['data']['email'], logged_in=True)
-        await user.update(request['connection'], key='email')
-        password_is_correct = request['data']['password'] == user.password
+        account = Account(email=request['data']['email'], logged_in=True)
+        await account.update(connection=request['connection'], key='email')
+        password_is_correct = pbkdf2_sha512.verify(request['data']['password'], account.password)
         if password_is_correct:
-            token = await token.create(user.__dict__)
-            user_serialized = await user.serialized()
-            tables = { t.name: [item.name for item in t.columns] for t in
-                       user.metadata.sorted_tables }
+            token = await Token(loop=request.app.loop).create(payload=dict(id=account.id, email=account.email))
+            acc_serialized = await account.serialized()
+            tables = {t.name: [item.name for item in t.columns] for t in account.metadata.sorted_tables}
             response = {
-                'user': user_serialized,
-                'tables': tables,
+                'account': acc_serialized,
+                'tables' : tables,
                 'message': {
                     'type': 'message',
                     'message': 'successfully logged in'
+                    }
                 }
-            }
             headers = {
                 'AUTH-TOKEN': token
-            }
+                }
+            print(response, token)
             return web.json_response(response, headers=headers)
         else:
             response = {
                 'message': {
                     'type': 'error',
                     'message': 'wrong password'
+                    }
                 }
-            }
             return web.json_response(response, status=401)
     except Exception as e:
         print(type(e).__name__, e)
@@ -75,27 +77,26 @@ async def login(request):
 
 
 async def token_login(request):
-    token = Token()
-    request['user'].logged_in = True
+    request['account'].logged_in = True
+    await asyncio.sleep(5)
     try:
-        await request['user'].update(request['connection'])
-        friends = list((await request['user'].get_friends(request['connection'])))
-        token = await token.create(request['user'].__dict__)
-        user_serialized = await request['user'].serialized()
-        tables = { t.name: [item.name for item in t.columns] for t in
-                   request['user'].metadata.sorted_tables }
+        await request['account'].update(connection=request['connection'])
+        token = await Token(loop=request.app.loop).create(
+                payload=dict(id=request['account'].id, email=request['account'].email)
+                )
+        acc_serialized = await request['account'].serialized()
+        tables = {t.name: [item.name for item in t.columns] for t in request['account'].metadata.sorted_tables}
         headers = {
             'AUTH-TOKEN': token
-        }
-        response = {
-            'user': user_serialized,
-            'tables': tables,
-            'friends': friends,
-            'message': {
-                'type': 'message',
-                'message': 'welcome back dumdidum {}!'.format(request['user'].name)
             }
-        }
+        response = {
+            'account': acc_serialized,
+            'tables' : tables,
+            'message': {
+                'type'   : 'message',
+                'message': f"welcome back {request['account'].email}!"
+                }
+            }
         return web.json_response(response, headers=headers)
     except Exception as e:
         print(type(e).__name__, e)
@@ -103,15 +104,16 @@ async def token_login(request):
 
 
 async def logout(request):
+    await asyncio.sleep(5)
     try:
-        request['user'].__dict__['logged_in'] = False
-        await request['user'].update(request['connection'])
+        request['account'].logged_in = False
+        await request['account'].update(connection=request['connection'])
         response = {
             'message': {
-                'type': 'message',
-                'message': '{} successfully logged out'.format(request['user'].name)
+                'type'   : 'message',
+                'message': f"{request['account'].email} successfully logged out."
+                }
             }
-        }
         return web.json_response(response)
     except Exception as e:
         print(type(e).__name__, e)

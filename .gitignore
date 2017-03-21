@@ -29,3 +29,10 @@ sdist/
 /.cache/
 /rsa/cacert.pem
 /rsa/privkey.pem
+/bonham/bonham_assets/node_modules/
+bonham/bonham_assets/node_modules/
+bonham/bonham_development/tmp/
+bonham/npm-debug.log
+public/
+rsa/
+/bonham_ui/node_modules/

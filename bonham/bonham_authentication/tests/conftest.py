@@ -1,14 +1,11 @@
 # py.test fixtures
-import asyncio
 
 import pytest
-import uvloop
+
+from bonham.utils import prepared_uvloop
 
 
 @pytest.fixture
 def my_loop():
-    loop = asyncio.get_event_loop()
-    if loop.is_closed():
-        loop = uvloop.new_event_loop()
-        asyncio.set_event_loop(loop)
+    loop = prepared_uvloop(debug=True)
     return loop

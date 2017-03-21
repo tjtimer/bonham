@@ -4,7 +4,7 @@ import arrow
 import sqlalchemy as sa
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy_utils import ArrowType, ChoiceType, LocaleType, PasswordType
+from sqlalchemy_utils import ArrowType, ChoiceType, LocaleType
 
 from bonham.bonham_user.constants import Friendship
 from bonham.constants import PrivacyStatus
@@ -21,13 +21,9 @@ class Friend(Base, BaseModel):
 
 
 class User(Base, BaseModel):
+    account_id = ForeignKey('account')
     name = sa.Column(sa.String(60), unique=True)
     slogan = sa.Column(sa.String(120))
-    email = sa.Column(sa.String(255), index=True, unique=True)
-    password = sa.Column(PasswordType(
-            schemes=['pbkdf2_sha512', 'md5_crypt'],
-            deprecated=['md5_crypt']
-    ), nullable=False)
     birthday = sa.Column(ArrowType)
     avatar = sa.Column(sa.String)
     locale = sa.Column(LocaleType)

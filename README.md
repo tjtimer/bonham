@@ -13,3 +13,17 @@ This is pure work in progress
 But feel free to review and criticize it.
 
 requires Python 3.6
+
+---
+#### Coding Style
+---
+- max line length should be 120, better is 80 (pep8)
+- all function arguments should be keyword only arguments, e.g.
+```python
+def function(*, argument=None):
+        if argument is None:
+                argument = default_value
+        ...
+```
+
+

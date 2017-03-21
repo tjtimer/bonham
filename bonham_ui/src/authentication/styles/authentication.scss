@@ -1,0 +1,16 @@
+@import '../../core/styles/colors';
+
+authentication {
+    vertical-align: middle;
+    flex: 0 1 auto;
+    display: flex;
+    flex-flow: nowrap;
+    align-items: stretch;
+    justify-content: space-between;
+    .invalid {
+        border: 1px solid $warn;
+    }
+    .valid {
+        border: none;
+    }
+}

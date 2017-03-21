@@ -1,0 +1,44 @@
+@import "animations";
+@import "buttons";
+@import "colors";
+@import "fonts";
+@import "loading-indicators";
+
+application {
+    @include font-primary;
+    display: flex;
+    flex-flow: column;
+    background: $primary;
+    color: $dark;
+    padding: 2px 4px;
+    transition: all 0.3s;
+    header, footer {
+        flex: 0 1 100%;
+        display: flex;
+        flex-flow: nowrap;
+        align-items: center;
+        justify-content: space-between;
+    }
+    h1 {
+        @include font-special-bold;
+        font-size: 30px;
+        line-height: 45px;
+    }
+    h2 {
+        @include font-special-bold;
+    }
+    h3, h4 {
+        @include font-special;
+    }
+}
+.error {
+    @include font-primary;
+    position: absolute;
+    top: 20%;
+    left: 25%;
+    display: block;
+    width: 50%;
+    padding: 16px;
+    background-color: $warn;
+    color: $dark;
+}

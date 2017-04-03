@@ -1,5 +1,5 @@
-import logging
 from asyncio.test_utils import TestCase
+import logging
 
 from bonham.root import init_app, shutdown
 from bonham.utils import prepared_uvloop
@@ -17,10 +17,5 @@ class TestRoot(TestCase):
         self.loop.stop()
         self.loop.close()
 
-    def test_app(self):
+    def test_app_logger(self):
         assert self.app.logger == logging.getLogger('bonham.log')
-        assert all(key in self.app.keys() for key in
-                   ['server', 'db', 'auth_users', 'aiohttp_jinja2_environment'])
-
-    def test_index(self):
-        print(vars(self.app))

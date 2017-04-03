@@ -5,7 +5,8 @@ import socket
 from bonham.local_settings import LOCAL_ADMIN, LOCAL_DSN
 
 HOST = 'localhost'
-PORT = 8080
+PORTS = range(9090, 9093)
+DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if it is not
 
 ADMIN = LOCAL_ADMIN
 
@@ -25,14 +26,13 @@ LOG_FORMAT = '%(asctime)s\t%(name)s - %(levelname)s\n' \
              '\t-\t%(pathname)s - %(filename)s - %(funcName)s\n' \
              '\t-\t%(message)s'
 
-DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if it is not
 
 
 RSA_DIR = os.path.join(BASE_DIR, 'rsa/self_signed')
 RSA_PEM = os.path.join(RSA_DIR, 'rsa.pem')
 RSA_PUB = os.path.join(RSA_DIR, 'rsa.pub')
 
-LOCALE_DIR = os.path.join(BASE_DIR, 'application/locales')
+LOCALE_DIR = os.path.join(BASE_DIR, 'locales')
 
 IMAGE_VARIANTS = {
     'original': None,  # save image as is

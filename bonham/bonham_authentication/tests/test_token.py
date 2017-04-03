@@ -1,21 +1,22 @@
-import hypothesis.strategies as st
 from hypothesis import given
+import hypothesis.strategies as st
 
-from bonham.bonham_authentication.tests.helper import name_alphabet
-from bonham.bonham_authentication.token import Token
+from bonham.bonham_authentication.token import create, verify_token
+from .helper import name_alphabet
 
 
 @given(user_id=st.integers(min_value=1), user_name=st.text(alphabet=name_alphabet, min_size=3, max_size=20))
 def test_token(my_loop, user_id, user_name):
     async def _test_token():
-        payload = {
-            'id': user_id,
-            'email': '{}@email.com'.format(user_name.lower())
-        }
-        token = Token(loop=my_loop)
-        encoded = await token.create(payload=payload)
-        assert len(encoded.split(b'.')) == 3
-        decoded = await token.verify_token(token=encoded)
-        assert decoded['id'] == payload['id']
+        request = {
+            'account': {
+                'id':    user_id,
+                'email': "{user_name.lower()}@email.com"
+                },
+            }
+        request['auth_token'] = await create(payload=request['account'])
+        assert len(request['auth_token'].split('.')) == 3
+        decoded = await verify_token(request=request)
+        assert decoded['id'] == request['account']['id']
 
     my_loop.run_until_complete(_test_token())

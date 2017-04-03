@@ -1,13 +1,18 @@
 from aiohttp import web
 
-from bonham.bonham_calendar.handler import get_calendars
+from .handler import create_calendar, get_calendars
 
 
 async def setup_routes(router):
-    router.add_get('/calendars/', get_calendars, name='get-calendars')
+    router.add_post('/', create_calendar, name='create-calendar')
+    router.add_get('/', get_calendars, name='get-calendars')
 
 
-async def init_calendar(loop=None):
-    app = web.Application(loop=loop)
-    await setup_routes(app.router)
-    return app
+async def shutdown(app):
+    print(f"\n\nshutting down calendar app")
+
+
+async def setup(app):
+    cal = web.Application(loop=app.loop)
+    await setup_routes(cal.router)
+    return app.add_subapp('/calendars', cal)

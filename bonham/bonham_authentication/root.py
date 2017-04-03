@@ -1,12 +1,18 @@
 from asyncio import ensure_future, wait
 
 from aiohttp import web
-from asyncpg import UniqueViolationError
+import sys
 
-from bonham.bonham_authentication.handler import login, logout, sign_up, token_login
-from bonham.bonham_authentication.middlewares import auth_middleware
-from bonham.bonham_authentication.models import Account
+from bonham import db
 from bonham.settings import ADMIN
+from .handler import login, logout, sign_up, token_login
+from .middlewares import auth_middleware
+from .models import Account
+
+
+async def authentication_required_response():
+    response = dict(error=f"Please log in or sign up to proceed.")
+    return web.json_response(response, status=401)
 
 
 async def setup_routes(router):
@@ -16,34 +22,28 @@ async def setup_routes(router):
     router.add_put(r'/logout/', logout, name='logout')
 
 
-async def setup_superuser(app):
-    acc_data = ADMIN
+async def setup_admins(app):
     async with app['db'].acquire() as connection:
-        app['admin'] = Account(**acc_data)
-        try:
-            await app['admin'].create(connection=connection)
-            app.logger.debug(f"Superuser created: {app['admin']}")
-        except UniqueViolationError:
-            admin_data = list(await app['admin'].get(connection=connection, where=f"is_superuser IS TRUE"))[0]
-            app['admin'] = Account(**admin_data)
-            app.logger.debug(f"Superuser exists: {app['admin']}")
-
-
-async def on_startup(app):
-    print(f"authentication on_startup: app: {app}")
-
+        async with connection.transaction():
+            where = f"is_superuser IS TRUE"
+            admins = list(await db.get(connection, table=Account.__table__, where=where))
+            app['admins'] = {admin['id']: {'id': admin['id'], 'email': admin['email']} for admin in admins}
+            if not len(app['admins']):
+                acc_data = ADMIN
+                admin = await db.create(connection, table=Account.__table__, data=acc_data)
+                app['admins'][admin['id']] = admin
 
 async def shutdown(app):
-    print(f"shutdown authentication.")
+    sys.stdout.write(f"shutting down Authentication!\n")
 
 
 async def setup(app):
-    auth = web.Application()
+    auth = web.Application(loop=app.loop)
     await wait([
+        ensure_future(setup_admins(app)),
         ensure_future(setup_routes(auth.router)),
-        ensure_future(setup_superuser(app))
         ])
-    auth.on_startup.append(on_startup)
     app.middlewares.append(auth_middleware)
-    app['auth_users'] = {}
+    auth['failed_logins'] = {}
+    auth['authenticated_accounts'] = {}
     app.add_subapp('/auth', auth)

@@ -1,30 +1,36 @@
-import jwt
 from aiohttp import web
+import jwt
 
 from bonham.bonham_authentication.models import Account
-from bonham.bonham_authentication.token import Token
+from .token import verify_token
 
 
 async def auth_middleware(app, handler):
-    print(f"app: {vars(app)}\nhandler: {handler.__name__}", flush=True)
     async def au_middleware_handler(request):
-        auth_token = request.headers.get('AUTH-TOKEN')
-        request['account'] = Account()
-        if auth_token:
+        request['auth_token'] = request.headers.get('AUTH-TOKEN')
+        request['is_authenticated'] = False
+        if request['auth_token']:
             try:
-                r_user = await Token(loop=app.loop).verify_token(token=auth_token)
-                vars(request['account']).update(**r_user)
+                r_user = await verify_token(request=request)
+                request['account'] = await db.get_by_id(
+                        request['connection'], table=Account.__table__,
+                        object_id=r_user['id'])
+                if request['account']['disabled']:
+                    return web.json_response(dict(error=f"Your account was disabled."), status=403)
+                request['is_authenticated'] = True
                 response = await handler(request)
                 return response
-            except (jwt.DecodeError, jwt.ExpiredSignatureError) as e:
-                return web.json_response({
-                    'message': {
-                        'type'   : 'error',
-                        "message": f"Token invalid! {type(e).__name__} -> {e}"
-                        }
-                    }, status=400)
-            finally:
-                app.logger.debug(f"\nrequest:\n\t{vars(request)}")
+            except jwt.ExpiredSignatureError as e:
+                response = dict(error=f"Your authentication token has expired.")
+                status = 401
+                data = {'logged_in': False, 'id': e}
+                await db.update(connection=request['connection'], table=Account.__table__, data=data)
+                if "logout" in request.raw_path:
+                    response = dict(message=f"{request['account'].email} successfully logged out.")
+                    status = 200
+                return web.json_response(response, status=status)
+            except jwt.DecodeError as e:
+                return web.json_response(dict(error=f"{e}"), status=400)
         response = await handler(request)
         return response
 

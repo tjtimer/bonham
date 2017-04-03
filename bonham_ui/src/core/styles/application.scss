@@ -2,7 +2,9 @@
 @import "buttons";
 @import "colors";
 @import "fonts";
+@import "inputs";
 @import "loading-indicators";
+@import "modal";
 
 application {
     @include font-primary;
@@ -13,11 +15,14 @@ application {
     padding: 2px 4px;
     transition: all 0.3s;
     header, footer {
-        flex: 0 1 100%;
+        flex: 0 0  100%;
         display: flex;
-        flex-flow: nowrap;
+        flex-flow: wrap;
         align-items: center;
         justify-content: space-between;
+        &.xxl, &.xl {
+            flex-flow: nowrap;
+        }
     }
     h1 {
         @include font-special-bold;
@@ -30,15 +35,23 @@ application {
     h3, h4 {
         @include font-special;
     }
+    .blur {
+        filter: blur(3px) grayscale(80%);
+    }
 }
 .error {
     @include font-primary;
-    position: absolute;
-    top: 20%;
-    left: 25%;
-    display: block;
-    width: 50%;
-    padding: 16px;
     background-color: $warn;
     color: $dark;
+    padding: 16px;
+}
+.close {
+    float: right;
+}
+.landscape {
+    flex-flow: nowrap;
+}
+.portrait {
+    flex-flow: column;
+    justify-content: flex-start;
 }

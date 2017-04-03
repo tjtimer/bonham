@@ -16,8 +16,8 @@ class UserStatus(Enum):
 
 UserStatus.admin.label = (u'Admin')
 UserStatus.editor.label = (u'Editor')
-UserStatus.regular.label = (u'Regular bonham_user')
-UserStatus.blocked.label = (u'Blocked bonham_user')
+UserStatus.regular.label = (u'Regular bonham_profile')
+UserStatus.blocked.label = (u'Blocked bonham_profile')
 
 
 class PrivacyStatus(Enum):

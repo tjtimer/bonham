@@ -1,94 +1,73 @@
-import axios from 'axios'
 import route from 'riot-route'
-import { call, spawn, take, put } from 'redux-saga/effects'
+import { call, spawn, take, takeEvery, put } from 'redux-saga/effects'
 import jwt_decode from 'jwt-decode'
-import * as aa from '../actions/auth'
+import api from '../../core/api'
+import * as authentication_actions from '../actions/auth'
 
 const ls = window.localStorage
 
-const api = axios.create({
-    baseURL: 'https://tjtimer.dev/auth/',
-    timeout: 10000,
-    withCredentials: true,
-    responseType: 'json'
-})
-
-function* onLoginSuccess(token, user) {
+function *handleError(error) {
+    yield put(authentication_actions.authRequestError(error.response))
+    delete api.defaults.headers['AUTH-TOKEN']
+    ls.removeItem('auth-token')
+}
+function* processLogout(token) {
+    yield put(authentication_actions.authRequestSent())
+    try {
+        const response = yield call(api.put, 'auth/logout/')
+        delete api.defaults.headers['AUTH-TOKEN']
+        ls.removeItem('auth-token')
+        yield put(authentication_actions.logOutSuccess())
+    } catch (error) {
+        yield spawn(handleError, error)
+    }
+}
+function* handleSuccess(response) {
+    const token = response.headers['auth-token']
     api.defaults.headers['AUTH-TOKEN'] = token
     ls.setItem('auth-token', token)
-    const decoded = jwt_decode(token)
-    console.log("got token: ", decoded)
-    // yield put(ua.initUser(user))
-    // yield put(push(`${decoded.name}/`))
+    yield put(authentication_actions.authRequestSuccess(response))
+    const logout = yield take(authentication_actions.SUBMIT_LOGOUT)
+    yield spawn(processLogout, logout.token)
 }
 
 
 function* processSignUp(data) {
     try {
-        const response = yield call(api.post, 'sign-up/', data)
-        yield put(aa.authRequestSuccess(response))
+        const response = yield call(api.post, 'auth/sign-up/', data)
+        yield spawn(handleSuccess, response)
     } catch (error) {
-        yield put(aa.authRequestError(error))
+        yield spawn(handleError, error)
     }
 }
 function* processLogin(data) {
     try {
-        const response = yield call(api.put, 'login/', data)
-        yield put(aa.authRequestSuccess(response))
-        yield spawn(onLoginSuccess, response.headers['auth-token'], response.data.user)
+        const response = yield call(api.put, 'auth/login/', data)
+        yield spawn(handleSuccess, response)
     } catch (error) {
-        console.log(error)
-        yield put(aa.authRequestError(error.response.data.message))
+        yield spawn(handleError, error)
     }
 }
 function* processTokenLogin(token) {
     try {
         api.defaults.headers['AUTH-TOKEN'] = token
-        const response = yield call(api.put, 'token-login/')
-        yield put(aa.authRequestSuccess(response))
-        yield spawn(onLoginSuccess, response.headers['auth-token'], response.data.user)
+        const response = yield call(api.put, 'auth/token-login/')
+        yield spawn(handleSuccess, response)
     } catch(error) {
-        ls.removeItem('auth-token')
-        yield put(aa.authRequestError(error.response.data.message))
+        yield spawn(handleError, error)
     }
 }
-function* processLogout(token) {
-    try {
-        const response = yield call(api.put, 'logout/')
-        delete api.defaults.headers['AUTH-TOKEN']
-        ls.removeItem('auth-token')
-        yield put(aa.authRequestSuccess(response))
-    } catch (error) {
-        yield put(aa.authRequestError(error))
-    }
-}
-export function* loginFlow() {
-    while (true) {
-        const login = yield take([aa.SUBMIT_LOGIN_FORM, aa.LOGIN_WITH_TOKEN])
-        yield put(aa.authRequestSent())
-        if (login.type === 'SUBMIT_LOGIN_FORM'){
-            yield spawn(processLogin, login.data)
-        } else {
-            yield spawn(processTokenLogin, login.token)
-        }
-        const logout = yield take(aa.SUBMIT_LOGOUT)
-        yield put(aa.authRequestSent())
-        yield spawn(processLogout, logout.token)
-    }
-}
-export function* signUpFlow() {
-    while (true) {
-        const signUp = yield take(aa.SUBMIT_SIGN_UP_FORM)
-        yield put(aa.authRequestSent())
-        yield spawn(processSignUp, signUp.data)
-        const logout = yield take(aa.SUBMIT_LOGOUT)
-        yield put(aa.authRequestSent())
-        yield spawn(processLogout, logout.token)
-    }
-}
+
 export default function* authSaga() {
-    yield [
-        spawn(loginFlow),
-        spawn(signUpFlow)
-    ]
+    while (true) {
+        const request = yield take([authentication_actions.SUBMIT_SIGN_UP_FORM, authentication_actions.SUBMIT_LOGIN_FORM, authentication_actions.SUBMIT_LOGIN_TOKEN])
+        yield put(authentication_actions.authRequestSent())
+        if (request.type === 'SUBMIT_SIGN_UP_FORM') {
+            yield spawn(processSignUp, request.data)
+        } else if (request.type === 'SUBMIT_LOGIN_FORM') {
+            yield spawn(processLogin, request.data)
+        } else {
+            yield spawn(processTokenLogin, request.token)
+        }
+    }
 }

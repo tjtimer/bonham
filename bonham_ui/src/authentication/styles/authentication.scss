@@ -1,16 +1,24 @@
 @import '../../core/styles/colors';
+@import './forms';
 
 authentication {
     vertical-align: middle;
-    flex: 0 1 auto;
+    flex: 1 1 400px;
     display: flex;
-    flex-flow: nowrap;
     align-items: stretch;
-    justify-content: space-between;
-    .invalid {
-        border: 1px solid $warn;
+    justify-content: flex-end;
+    &.landscape {
+        flex-flow: wrap;
     }
-    .valid {
-        border: none;
+    &.portrait {
+        flex-flow: column;
     }
+}
+account,
+registration {
+    flex: 0 1 100%;
+    display: flex;
+    flex-flow: wrap;
+    align-items: flex-start;
+    justify-content: flex-end;
 }

@@ -1,7 +1,7 @@
 from aiohttp import web
 
 from bonham.bonham_calendar.root import init_calendar
-from bonham.bonham_user.root import init_user
+from bonham.bonham_profile.root import init_user
 
 
 async def add_subapps(app):

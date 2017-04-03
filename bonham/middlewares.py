@@ -14,18 +14,14 @@ async def error_middleware(app, handler):
         try:
             response = await handler(request)
             return response
-        except HTTPNotFound as e:
-            print(f"HTTPNotFound: {e}\nrequest.raw_path: {request.raw_path}", flush=True)
-            return HTTPFound('/', headers={ 'REDIRECT': request.raw_path })
+        except HTTPNotFound:
+            return HTTPFound('/', headers={'REDIRECT': request.raw_path})
         except Exception as e:
             app.logger.debug(f"request error: {type(e).__name__}"
                              f"\n\trequest:\n\t{vars(request)}"
                              f"\n\targs:\n\t{[arg for arg in e.args]}\n")
             return web.json_response({
-                'message': {
-                    'type': 'error',
-                    'message': f"{type(e).__name__}: {e}"
-                    }
+                'error': f"{type(e).__name__}: {e}"
                 }, status=400)
 
     return er_middleware_handler
@@ -33,6 +29,16 @@ async def error_middleware(app, handler):
 
 async def data_middleware(app, handler):
     async def da_middleware_handler(request):
+        qs = request.rel_url.query_string
+        if qs:
+            request['query'] = {pair.split('=')[0]: pair.split('=')[1] for pair in qs.split('&')}
+            print(f"request query: {request['query']}")
+        else:
+            request['query'] = {
+                'offset':   0,
+                'order_by': 'name',
+                'limit':    50
+                }
         if any(request.method in method for method in ['POST', 'PUT', 'PATCH']):
             data = await request.content.read()
             if data is not b'':
@@ -54,12 +60,9 @@ async def db_middleware(app, handler):
         except Exception as e:
             print(f"\n\ndb engine middleware exception:\n\t{type(e).__name__}\n\t{e}", flush=True)
             response = {
-                'message': {
-                    'type'   : 'error',
-                    'message': f"database error: {type(e).__name__} ->{e}"
-                    }
+                'error': f"database error: {type(e).__name__} ->{e}"
                 }
-            return response
+            return web.json_response(response, status=401)
 
     return db_engine_handler
 

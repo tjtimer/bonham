@@ -1,7 +1,9 @@
 import { combineReducers } from 'redux'
 
-import ui from './reducers/ui'
+import application from './reducers/application'
+import modal from './reducers/modal'
 
 export default combineReducers({
-    ui,
+    application,
+    modal
 })

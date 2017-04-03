@@ -1,6 +1,6 @@
 from aiohttp import web
 
-from bonham.bonham_user.handler import delete_user, get_friends, get_user, get_users, request_friendship, update_user
+from bonham.bonham_profile.handler import delete_user, get_friends, get_user, get_users, request_friendship, update_user
 
 
 async def setup_routes(router):
@@ -13,7 +13,7 @@ async def setup_routes(router):
     router.add_post(r'/{user_id}/friends/{id}/', request_friendship, name='request-friendship')
 
 
-async def init_user(loop=None):
-    app = web.Application(loop=loop)
+async def setup(app):
+    app = web.Application(loop=app.loop)
     await setup_routes(app.router)
     return app

@@ -3,29 +3,38 @@ import * as aa from '../actions/auth'
 const initialState = {
     isAuthenticated: false,
     isAuthenticating: false,
-    error: ''
+    showLogin: true
 }
 
 export default function(state=initialState, action) {
-    console.log(action)
     switch (action.type) {
-        case aa.AUTH_REQUEST_SENT:
+        case aa.AUTHENTICATION_REQUEST_SENT:
             return {
                 ...state,
                 isAuthenticating: true
             }
-        case aa.AUTH_REQUEST_SUCCESS:
+        case aa.AUTHENTICATION_REQUEST_SUCCESS:
             return {
                 ...state,
                 isAuthenticated: true,
                 isAuthenticating: false,
             }
-        case aa.AUTH_REQUEST_ERROR:
+        case aa.AUTHENTICATION_REQUEST_ERROR:
             return {
                 ...state,
                 isAuthenticated: false,
-                isAuthenticating: false,
-                error: action.data.message
+                isAuthenticating: false
+            }
+        case aa.LOG_OUT_SUCCESS:
+            return {
+                ...state,
+                isAuthenticated: false,
+                isAuthenticating: false
+            }
+        case aa.TOGGLE_AUTHENTICATION_FORM:
+            return {
+                ...state,
+                showLogin: !state.showLogin
             }
         default:
             return state

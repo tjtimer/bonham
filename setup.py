@@ -13,9 +13,9 @@ setup(
                 'console_scripts': [
                         'bonham-run=bonham.root:main',
                         'bonham-create-app=bonham.bonham_development.create_app:main',
-                        'bonham-dev-server=bonham.bonham_development.dev_server_s:main'
-            ],
-        },
+                        'bonham-dev-server=bonham.bonham_development.dev_server:main'
+                        ],
+                },
         zip_safe=False,
         install_requires=[
                 'aiohttp',
@@ -33,5 +33,5 @@ setup(
                 'requests',
                 'hypothesis',
                 'pytest',
-        ]
+                ]
         )

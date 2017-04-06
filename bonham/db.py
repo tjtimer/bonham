@@ -1,4 +1,4 @@
-from collections import Iterable
+from collections import Iterator
 
 import asyncpg
 from asyncpg.connection import Connection
@@ -70,7 +70,7 @@ def table_name(value):
 class Connect(object):
     @declared_attr
     def __tablename__(cls):
-        return table_name(cls.__name__)
+        return cls.__name__.lower()
 
     id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
 
@@ -78,7 +78,7 @@ class Connect(object):
 class BaseModel(object):
     @declared_attr
     def __tablename__(cls):
-        return table_name(cls.__name__)
+        return cls.__name__.lower()
 
     id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
 
@@ -98,27 +98,13 @@ class BaseModel(object):
         return f"<{self.__table__}: {vars(self)}>"
 
     async def create(self, connection, *, data: dict = None) -> dict:
-        try:
-            stmt = self.__table__.insert().values(**data).returning(self.__table__)
-            statement = str(stmt.compile(compile_kwargs={'literal_binds': True}))
-            row = await connection.fetchrow(statement)
-            return dict(row)
-        except Exception as e:
-            raise
+        pass
 
     async def get_by_id(self, connection: Connection, *, object_id: int = None, fields: list = None) -> dict:
         if fields is None:
             fields = ['*']
-        try:
-            statement = f"SELECT {', '.join(fields)} FROM {self.__table__} WHERE id={object_id}"
-            row = await connection.fetchrow(statement)
-            if row:
-                return dict(row)
-            return None
-        except Exception as e:
-            raise
 
-    async def get(self, connection: Connection, **kwargs) -> Iterable:
+    async def get(self, connection: Connection, **kwargs) -> Iterator:
         keys = kwargs.keys()
         if 'fields' not in keys:
             kwargs['fields'] = '*'
@@ -135,10 +121,7 @@ class BaseModel(object):
             kwargs['direction'] = ""
         stmt += f" ORDER BY {kwargs['order_by']} OFFSET {kwargs['offset']} LIMIT {kwargs['limit']} {kwargs[" \
                 f"'direction']}"
-        try:
-            return (dict(row) for row in await connection.fetch(stmt))
-        except Exception as e:
-            raise
+
 
     async def update(self, connection: Connection, *, key: str = None, data: dict = None) -> dict:
         if key is None:
@@ -149,19 +132,19 @@ class BaseModel(object):
         stmt = self.__table__.update().where(
                 self.__table__.c[key] == data[key]
                 ).values(**u_data).returning(self.__table__)
-        try:
-            statement = str(stmt.compile(compile_kwargs={'literal_binds': True}))
-            row = await connection.fetchrow(statement)
-            return dict(row)
-        except TypeError:
-            raise TypeError(f"Update {self.__table__} error. Record with {key} = {data[key]} not found.")
-        except Exception as e:
-            raise
 
     async def delete(self, connection, *, object_id: int = None) -> bool:
-        try:
-            statement = f"DELETE FROM {self.__table__} WHERE id={object_id}"
-            await connection.execute(statement)
-            return True
-        except Exception as e:
-            return False
+        pass
+
+
+async def check_existence(self, connection: Connection, *, object_id: int = None, fields: list = None) -> dict:
+    if fields is None:
+        fields = ['*']
+    try:
+        statement = f"SELECT {', '.join(fields)} FROM {self.__table__} WHERE id={object_id}"
+        row = await connection.fetchrow(statement)
+        if row:
+            return dict(row)
+        return None
+    except Exception as e:
+        raise

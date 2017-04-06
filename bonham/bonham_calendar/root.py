@@ -15,4 +15,5 @@ async def shutdown(app):
 async def setup(app):
     cal = web.Application(loop=app.loop)
     await setup_routes(cal.router)
-    return app.add_subapp('/calendars', cal)
+    app.add_subapp('/calendars', cal)
+    return app

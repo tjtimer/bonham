@@ -3,7 +3,6 @@ from asyncio import ensure_future, wait
 from aiohttp import web
 import sys
 
-from bonham import db
 from bonham.settings import ADMIN
 from .handler import login, logout, sign_up, token_login
 from .middlewares import auth_middleware
@@ -23,18 +22,20 @@ async def setup_routes(router):
 
 
 async def setup_admins(app):
+    account = Account()
     async with app['db'].acquire() as connection:
         async with connection.transaction():
             where = f"is_superuser IS TRUE"
-            admins = list(await db.get(connection, table=Account.__table__, where=where))
+            admins = list(await account.get(connection, where=where))
             app['admins'] = {admin['id']: {'id': admin['id'], 'email': admin['email']} for admin in admins}
             if not len(app['admins']):
                 acc_data = ADMIN
-                admin = await db.create(connection, table=Account.__table__, data=acc_data)
+                admin = await account.create(connection, data=acc_data)
                 app['admins'][admin['id']] = admin
+    return app
 
 async def shutdown(app):
-    sys.stdout.write(f"shutting down Authentication!\n")
+    sys.stdout.write(f"Authentication shut down!\n")
 
 
 async def setup(app):
@@ -47,4 +48,5 @@ async def setup(app):
     app.middlewares.append(auth_middleware)
     auth['failed_logins'] = {}
     auth['authenticated_accounts'] = set()
-    return app.add_subapp('/auth', auth)
+    app.add_subapp('/auth', auth)
+    return app

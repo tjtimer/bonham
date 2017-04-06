@@ -43,5 +43,6 @@ class Account(Base, BaseModel):
 
 
 class AccessToken(Base, BaseModel):
+    __tablename__ = 'access_token'
     account_id = ForeignKey('account')
     acc_token = sa.Column(sa.String)

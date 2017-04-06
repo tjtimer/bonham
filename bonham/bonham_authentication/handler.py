@@ -2,7 +2,6 @@ from aiohttp import web
 from asyncpg import UniqueViolationError
 from passlib.hash import pbkdf2_sha512
 
-from bonham import db
 from bonham.serializer import serialize
 from .models import Account, validate_data
 from .token import *
@@ -12,11 +11,11 @@ async def sign_up(request):
     try:
         if await validate_data(request['data']):
             async with request['connection'].transaction():
-                account = await db.create(request['connection'], table=Account.__table__, data=request['data'])
+                account = await Account().create(request['connection'], data=request['data'])
                 del account['password']
                 payload = dict(email=account['email'], id=account['id'])
                 token = await create(payload=payload)
-                acc_serialized = await serialize(account)
+                acc_serialized = await serialize('accounts', account)
                 response = {
                     'account': acc_serialized,
                     'message': 'we send you an email with a link to verify and finish the sign up process.'
@@ -69,7 +68,7 @@ async def login(request):
             response = await check_retries(request.app['failed_logins'], data['email'])
             if response:
                 return web.json_response(response, status=401)
-        account = await db.update(request['connection'], table=Account.__table__, key='email', data=data)
+        account = await Account().update(request['connection'], key='email', data=data)
         password_is_correct = pbkdf2_sha512.verify(
                 request['data']['password'], account['password']
                 )
@@ -77,7 +76,7 @@ async def login(request):
             del account['password']
             payload = dict(email=account['email'], id=account['id'])
             token = await create(payload=payload)
-            acc_serialized = await serialize('account', account)
+            acc_serialized = await serialize('accounts', account)
             response = {
                 'account': acc_serialized,
                 'message': 'successfully logged in'
@@ -96,12 +95,11 @@ async def login(request):
 
 async def token_login(request):
     data = {'id': request['account']['id'], 'logged_in': True}
-    request['account'] = await db.update(request['connection'], table=Account.__table__, data=data)
-    del request['account']['password']
+    request['account'] = await Account().update(request['connection'], data=data)
     token = await create(
             payload=dict(id=request['account']['id'], email=request['account']['email'])
             )
-    acc_serialized = await serialize(request['account'])
+    acc_serialized = await serialize('accounts', request['account'])
     headers = {
         'AUTH-TOKEN': token
         }
@@ -114,7 +112,7 @@ async def token_login(request):
 
 async def logout(request):
     data = {'id': request['account']['id'], 'logged_in': False}
-    await db.update(request['connection'], table=Account.__table__, data=data)
+    await Account().update(request['connection'], data=data)
     response = {
         'message': f"{request['account']['email']} successfully logged out."
         }

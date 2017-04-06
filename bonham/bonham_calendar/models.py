@@ -14,6 +14,7 @@ __all__ = ['CalendarType', 'Calendar', 'Entry', 'CalendarEntry', 'CalendarEntryR
 
 
 class CalendarType(Base, BaseModel):
+    __tablename__ = 'calendar_type'
     title = sa.Column(sa.String(64))
 
     @staticmethod
@@ -25,21 +26,20 @@ class CalendarType(Base, BaseModel):
                 )
         return all(valid)
 
-    @staticmethod
-    async def get_or_create(connection: Connection, *, data: dict = None) -> dict:
-        stmt = f"SELECT id, title FROM calendartype WHERE title='{data['title']}'"
+    async def get_or_create(self, connection: Connection, *, data: dict = None) -> dict:
+        stmt = f"SELECT id, title FROM {self.__table__} WHERE title='{data['title']}'"
         cal_type = await connection.fetchrow(stmt)
         if not cal_type:
             columns = "(title, created)"
             values = f"('{data['title']}', CURRENT_TIMESTAMP)"
-            stmt = f"INSERT INTO calendartype {columns} VALUES {values} RETURNING *"
+            stmt = f"INSERT INTO {self.__table__} {columns} VALUES {values} RETURNING *"
             cal_type = await connection.fetchrow(stmt)
         return dict(cal_type)
 
 
 class Calendar(Base, BaseModel):
     owner = ForeignKey('account')
-    type = ForeignKey('calendartype')
+    type = ForeignKey('calendar_type')
     title = sa.Column(sa.String(64), primary_key=True)
     color = sa.Column(sa.String(20))
     show = sa.Column(sa.Boolean, server_default='1')
@@ -54,19 +54,17 @@ class Calendar(Base, BaseModel):
                 )
         return all(valid)
 
-    @staticmethod
-    async def create(connection, data: dict = None):
+    async def create(self, connection, data: dict = None):
         columns = "(type, owner, title, color, created)"
         values = f"({data['type']}, {data['owner']}, '{data['title']}', '{data['color']}', CURRENT_TIMESTAMP)"
-        statement = f"INSERT INTO calendar {columns} VALUES {values} RETURNING *"
+        statement = f"INSERT INTO {self.table__} {columns} VALUES {values} RETURNING *"
         calendar = await connection.fetchrow(statement)
         return dict(calendar)
 
-    @staticmethod
-    async def update(connection, id: int = None, data: dict = None):
+    async def update(self, connection, id: int = None, data: dict = None):
         columns = f"({' '.join(data.keys())}, last_updated)"
         values = f"({', '.join(data.values())}, CURRENT_TIMESTAMP)"
-        statement = f"UPDATE calendar SET {columns} VALUES {values} WHERE id={id} RETURNING *"
+        statement = f"UPDATE {self.table__} SET {columns} VALUES {values} WHERE id={id} RETURNING *"
         calendar = await connection.fetchrow(statement)
         return dict(calendar)
 
@@ -102,31 +100,37 @@ class Entry(Base, BaseModel):
 
 
 class CalendarEntry(Base, Connect):
+    __tablename__ = 'calendar_entry'
     calendar_id = ForeignKey('calendar')
     entry_id = ForeignKey('entry')
 
 
 class CalendarEntryReminder(Base, BaseModel):
+    __tablename__ = 'calendar_entry_reminder'
     calendar_entry_id = ForeignKey('entry')
     date_time = sa.Column(ArrowType(timezone=True))
     type = sa.Column(ChoiceType(ReminderType, impl=sa.Integer()))
 
 
 class CalendarAdmin(Base, Connect):
+    __tablename__ = 'calendar_admin'
     account_id = ForeignKey('account')
     calendar_id = sa.Column(sa.Integer, nullable=False)
 
 
 class CalendarEditor(Base, Connect):
+    __tablename__ = 'calendar_editor'
     account_id = ForeignKey('account')
     calendar_id = sa.Column(sa.Integer, nullable=False)
 
 
 class EntryAdmin(Base, Connect):
+    __tablename__ = 'entry_admin'
     account_id = ForeignKey('account')
     entry_id = sa.Column(sa.Integer, nullable=False)
 
 
 class EntryEditor(Base, Connect):
+    __tablename__ = 'entry_editor'
     account_id = ForeignKey('account')
     entry_id = sa.Column(sa.Integer, nullable=False)

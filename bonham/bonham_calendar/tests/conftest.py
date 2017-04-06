@@ -4,13 +4,6 @@ import pytest
 import requests
 
 from bonham.local_settings import LOCAL_ADMIN
-from bonham.utils import prepared_uvloop
-
-
-@pytest.fixture
-def my_loop():
-    loop = prepared_uvloop(debug=True)
-    return loop
 
 
 @pytest.fixture

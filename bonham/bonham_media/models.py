@@ -1,7 +1,7 @@
 import sqlalchemy as sa
 from sqlalchemy_utils import ArrowType
 
-from bonham.db import Base, BaseModel, ForeignKey
+from bonham.db import Base, BaseModel, Connect, ForeignKey
 
 __all___ = ['Gallery', 'Picture', 'GalleryPicture', 'GalleryAdmin', 'GalleryEditor', 'PictureAdmin', 'PictureEditor']
 
@@ -19,26 +19,31 @@ class Picture(Base, BaseModel):
     path = sa.Column(sa.String)
 
 
-class GalleryPicture(Base, BaseModel):
+class GalleryPicture(Base, Connect):
+    __tablename__ = 'gallery_picture'
     gallery_id = ForeignKey('gallery')
     picture_id = ForeignKey('picture')
 
 
-class GalleryAdmin(Base, BaseModel):
+class GalleryAdmin(Base, Connect):
+    __tablename__ = 'gallery_admin'
     account_id = ForeignKey('account')
     object_id = sa.Column(sa.Integer, nullable=False)
 
 
-class GalleryEditor(Base, BaseModel):
+class GalleryEditor(Base, Connect):
+    __tablename__ = 'gallery_editor'
     account_id = ForeignKey('account')
     object_id = sa.Column(sa.Integer, nullable=False)
 
 
-class PictureAdmin(Base, BaseModel):
+class PictureAdmin(Base, Connect):
+    __tablename__ = 'picture_admin'
     account_id = ForeignKey('account')
     object_id = sa.Column(sa.Integer, nullable=False)
 
 
-class PictureEditor(Base, BaseModel):
+class PictureEditor(Base, Connect):
+    __tablename__ = 'picture_editor'
     account_id = ForeignKey('account')
     object_id = sa.Column(sa.Integer, nullable=False)

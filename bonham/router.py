@@ -14,7 +14,6 @@ async def setup(app) -> web.Application:
       or using router.add_route('method', 'route', handler, name=name) 
     
     :param app: app.router instance
-    :type router: <class 'aiohttp.web_urldispatcher.UrlDispatcher'>
     :return: None
     """
     app.router.add_get('/', index, name='ìndex')

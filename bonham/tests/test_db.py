@@ -35,7 +35,7 @@ def test_create(my_loop, testmodel, privacy):
     async def _test_create():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                model = await db.create(connection, table=testmodel.__table__, data=dict(privacy=privacy))
+                model = await testmodel().create(connection, data=dict(privacy=privacy))
                 assert model['last_updated'] is None
                 assert model['id'] >= 1
                 assert timedelta(seconds=0) <= (arrow.utcnow() - arrow.get(model['created'])) <= timedelta(seconds=1)
@@ -44,12 +44,12 @@ def test_create(my_loop, testmodel, privacy):
 
 
 @given(id=st.integers(min_value=1, max_value=20000))
-def test_get(my_loop, testmodel, id):
+def test_get(my_loop, testmodel):
     async def _test_get():
         table = testmodel.__table__
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                models = await db.get(connection, table=table)
+                models = await testmodel().get(connection, table=table)
                 print(f"Model Type generator: {type(models)}")
                 assert type(models).__name__ == 'generator'
                 _list = list(models)
@@ -64,7 +64,7 @@ def test_get_by_id(my_loop, testmodel, id):
     async def _test_get_by_id():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                model = await db.get_by_id(connection, table=testmodel.__table__, object_id=id)
+                model = await testmodel().get_by_id(connection, object_id=id)
                 if model:
                     assert isinstance(model, (dict,))
                     assert arrow.get(model['created']) <= arrow.utcnow()
@@ -85,20 +85,20 @@ def test_get_with_kwargs(my_loop, testmodel):
         offset2 = offset + limit
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                models_page1 = await db.get(connection,
-                                            table=table,
-                                            fields=fields,
-                                            where=where,
-                                            limit=limit,
-                                            order_by=order_by,
-                                            offset=offset)
-                models_page2 = await db.get(connection,
-                                            table=table,
-                                            fields=fields,
-                                            where=where,
-                                            limit=limit,
-                                            order_by=order_by,
-                                            offset=offset2)
+                models_page1 = await testmodel().get(connection,
+                                                     table=table,
+                                                     fields=fields,
+                                                     where=where,
+                                                     limit=limit,
+                                                     order_by=order_by,
+                                                     offset=offset)
+                models_page2 = await testmodel().get(connection,
+                                                     table=table,
+                                                     fields=fields,
+                                                     where=where,
+                                                     limit=limit,
+                                                     order_by=order_by,
+                                                     offset=offset2)
                 assert all(type(result).__name__ == 'generator' for result in [models_page1, models_page2])
                 page1 = list(models_page1)
                 page2 = list(models_page2)
@@ -121,16 +121,16 @@ def test_update(my_loop, testmodel, id, privacy):
     async def _test_update():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                exists = await db.get_by_id(connection, table=testmodel.__table__, object_id=id)
+                exists = await testmodel().get_by_id(connection, object_id=id)
                 data = dict(id=id, privacy=PrivacyStatus(privacy))
                 if exists:
-                    model = await db.update(connection, table=testmodel.__table__, data=data)
+                    model = await testmodel().update(connection, data=data)
                     assert timedelta(seconds=0) <= (arrow.utcnow() - arrow.get(model['last_updated'])) <= timedelta(
                         seconds=5)
                     assert model['privacy'] == privacy
                 else:
                     with pytest.raises(TypeError) as ex_info:
-                        await db.update(connection, table=testmodel.__table__, data=data)
+                        await testmodel().update(connection, data=data)
                     assert f"Update testmodel error. Record with id = {id} not found." in str(ex_info.value)
 
     my_loop.run_until_complete(_test_update())
@@ -139,11 +139,10 @@ def test_update(my_loop, testmodel, id, privacy):
 @given(id=st.integers(min_value=1, max_value=20000))
 def test_delete(my_loop, testmodel, id):
     async def _test_delete():
-        table = testmodel.__table__
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                if await db.delete(connection, table=table, object_id=id):
-                    del_model = await db.get_by_id(connection, table=table, object_id=id)
+                if await testmodel().delete(connection, object_id=id):
+                    del_model = await testmodel().get_by_id(connection, object_id=id)
                     assert del_model is None
 
     my_loop.run_until_complete(_test_delete())

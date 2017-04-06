@@ -12,7 +12,7 @@ pytest_plugins = 'aiohttp.pytest_plugin'
 
 class TestModel(Base, BaseModel):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__()
 
 
 @pytest.fixture(scope='function')

@@ -44,10 +44,12 @@ class UUConnection(Base, BaseModel):
 
 
 class GroupAdmin(Base, BaseModel):
+    __tablename__ = 'group_admin'
     account_id = ForeignKey('account')
     object_id = sa.Column(sa.Integer, nullable=False)
 
 
 class GroupEditor(Base, BaseModel):
+    __tablename__ = 'group_editor'
     account_id = ForeignKey('account')
     object_id = sa.Column(sa.Integer, nullable=False)

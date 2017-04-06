@@ -1,12 +1,12 @@
+import os
 from uuid import uuid4
 
-import os
 from PIL import Image as pil, ImageOps as img_ops
 
 from bonham.settings import IMAGE_VARIANTS
 
 
-async def get_resized_image(img, size):
+async def resize_image(img, size):
     """ returns an resized image, where the longer side is scaled to given size"""
     x = float(img.size[0])
     y = float(img.size[1])
@@ -29,7 +29,7 @@ async def get_thumbnail(img, size, crop_center):
     return img_ops.fit(img, (size, size), method=pil.LANCZOS, centering=crop_center)
 
 
-async def process_image(image_data, name, root_folder, *, crop_center=None, **kwargs):
+async def process_image(image_data, name, root_folder, *, crop_center=None):
     with pil.open(image_data) as pic:
         if name is None:
             name = uuid4().str
@@ -44,7 +44,7 @@ async def process_image(image_data, name, root_folder, *, crop_center=None, **kw
             if 'orig' in sub:
                 img.save(os.path.join(directory, filename))
             elif sub in 'm l xl':
-                img = await get_resized_image(img, size)
+                img = await resize_image(img, size)
             else:
                 img = await get_thumbnail(img, size, crop_center)
             img.save(os.path.join(directory, filename))

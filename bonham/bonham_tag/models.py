@@ -1,7 +1,7 @@
 from asyncpg.connection import Connection
 import sqlalchemy as sa
 
-from bonham.db import Base, BaseModel, ForeignKey
+from bonham.db import Base, BaseModel, Connect, ForeignKey
 
 __all__ = ['Tag', 'TaggedItem']
 
@@ -23,7 +23,9 @@ class Tag(Base, BaseModel):
             tag = await connection.fetchrow(stmt)
         return dict(tag)
 
-class TaggedItem(Base, BaseModel):
+
+class TaggedItem(Base, Connect):
+    __tablename__ = 'tagged_item'
     tag_id = ForeignKey('tag')
     table = sa.Column(sa.String, nullable=False)
     object_id = sa.Column(sa.Integer, nullable=False)

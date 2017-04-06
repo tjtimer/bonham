@@ -15,6 +15,9 @@ async def setup_routes(router):
     #  router.add_delete('/{tag_id}/', delete_tag, name='delete-tag')
 
 
+async def shutdown(app):
+    print(f"Tag shut down!\n")
+
 async def setup(app):
     tags = web.Application(loop=app.loop)
     tags['tables'] = app['tables'].append(Tag.metadata.sorted_tables)

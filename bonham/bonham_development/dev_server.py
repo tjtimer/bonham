@@ -21,14 +21,14 @@ start_tests = curio.Event()
 
 
 async def has_changed(file):
-    return (arrow.now() - arrow.get(os.stat(file).st_mtime)) <= datetime.timedelta(seconds=0.3)
+    return (arrow.now() - arrow.get(os.stat(file).st_mtime)) <= datetime.timedelta(seconds=1)
 
 
 async def file_watcher(directory, pattern):
     try:
         print(f"file_watcher started!\nwatching: {directory} {pattern}\n")
         while True:
-            await curio.sleep(0.3)
+            await curio.sleep(1)
             f_changed = [file.name for file in Path(directory).glob(pattern) if await has_changed(file)]
             if len(f_changed) >= 1:
                 return f_changed
@@ -116,8 +116,8 @@ def main():
                         help='watch changes in javascript files too.')
     parser.add_argument('--with-tests', '-wt', action='store_true',
                         help='run with test runner.')
-    parser.add_argument('--port', '-p', type=int, default=9091,
-                        help='port number for this server instance, type integer e.g 8000')
+    parser.add_argument('--port', '-p', type=int, default=9090,
+                        help='port number for this server instance, type integer default 9090')
     args = parser.parse_args()
     try:
         curio.run(manager, args, with_monitor=True)

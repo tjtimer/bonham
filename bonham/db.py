@@ -1,8 +1,8 @@
-from collections import Iterator
-
 import asyncpg
 from asyncpg.connection import Connection
 import sqlalchemy as sa
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 import sqlamp
@@ -97,44 +97,72 @@ class BaseModel(object):
     def __str__(self):
         return f"<{self.__table__}: {vars(self)}>"
 
-    async def create(self, connection, *, data: dict = None) -> dict:
-        pass
+    async def create(self, connection):
+        keys = self.__table__.c.keys()
+        data = {
+            key: value for key, value in vars(self).items()
+            if key in keys
+            }
+        data['created'] = f"TIMESTAMP \'{arrow.utcnow()}\'"
+        try:
+            stmt = self.__table__.insert().values(data).returning(self.__table__)
+            result = await connection.fetchrow(str(stmt.compile(compile_kwargs={'literal_binds': True})))
+            return vars(self).update(dict(result))
+        except Exception as e:
+            print(f'create {self.__table__} exception: {type(e).__name__} -> {e}')
+            raise
 
-    async def get_by_id(self, connection: Connection, *, object_id: int = None, fields: list = None) -> dict:
-        if fields is None:
-            fields = ['*']
-
-    async def get(self, connection: Connection, **kwargs) -> Iterator:
-        keys = kwargs.keys()
-        if 'fields' not in keys:
-            kwargs['fields'] = '*'
-        stmt = f"SELECT {kwargs['fields']} FROM {self.__table__} "
-        if 'where' in keys:
-            stmt += f" WHERE {kwargs['where']} "
-        if 'order_by' not in keys:
+    async def get(self, connection, **kwargs):
+        k_keys = kwargs.keys()
+        if 'fields' not in k_keys:
+            stmt = self.__table__.select()
+        else:
+            stmt = select([self.__table__.c[key] for key in kwargs['fields'].split(',')])
+        if 'where' in k_keys:
+            stmt = stmt.where(sa.text(kwargs['where']))
+        if 'order_by' not in k_keys:
             kwargs['order_by'] = 'id'
-        if 'offset' not in keys:
+        if 'offset' not in k_keys:
             kwargs['offset'] = 0
-        if 'limit' not in keys:
+        if 'limit' not in k_keys:
             kwargs['limit'] = 1000
-        if 'direction' not in keys:
-            kwargs['direction'] = ""
-        stmt += f" ORDER BY {kwargs['order_by']} OFFSET {kwargs['offset']} LIMIT {kwargs['limit']} {kwargs[" \
-                f"'direction']}"
+        stmt = stmt.order_by(kwargs['order_by']).offset(kwargs['offset']).limit(kwargs['limit'])
+        try:
+            statement = str(stmt.compile(compile_kwargs={'literal_binds': True}))
+            return ({key: value for key, value in row.items()} for row in await connection.fetch(statement))
+        except Exception as e:
+            print(f"get {self.__table__}s exception: {type(e).__name__}: {e}")
+            raise
 
-
-    async def update(self, connection: Connection, *, key: str = None, data: dict = None) -> dict:
+    async def update(self, connection, key=None):
+        self.last_updated = f"TIMESTAMP \'{arrow.utcnow()}\'"
+        data = {key: value for key, value in vars(self).items() if key in self.__table__.c.keys() and value is not
+                None}
         if key is None:
             key = 'id'
-        u_data = {col_name: value for col_name, value in data.items()
-                  if
-                  col_name in self.__table__.c.keys() and col_name not in ['created', 'id', key] and value is not None}
-        stmt = self.__table__.update().where(
-                self.__table__.c[key] == data[key]
-                ).values(**u_data).returning(self.__table__)
+        stmt = self.__table__.update().where(self.__table__.c[key] == vars(self)[key]).values(
+                data).returning(self.__table__)
+        try:
+            result = await connection.fetchrow(str(stmt.compile(compile_kwargs={'literal_binds': True})))
+            return vars(self).update(dict(result))
+        except TypeError as e:
+            raise IntegrityError(f"Update {self.__table__} error. Record with {key} = {vars(self)[key]} not found.",
+                                 type(e).__name__,
+                                 e)
+        except Exception as e:
+            print(f"update {self.__table__} exception: {type(e).__name__}: {e.value}", flush=True)
+            raise
 
-    async def delete(self, connection, *, object_id: int = None) -> bool:
-        pass
+    async def delete(self, connection):
+        stmt = self.__table__.delete().where(self.__table__.c.id == self.id)
+        try:
+            statement = str(stmt.compile(compile_kwargs={'literal_binds': True}))
+            await connection.execute(statement)
+            del self
+            return
+        except Exception as e:
+            print(f'delete {self.__table__} exception: {e}')
+            raise
 
 
 async def check_existence(self, connection: Connection, *, object_id: int = None, fields: list = None) -> dict:

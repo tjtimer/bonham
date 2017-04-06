@@ -22,7 +22,6 @@ def test_create_unauthenticated(cal_type, cal_title):
     response = requests.post('https://tjtimer.dev/calendars/',
                              data=data,
                              verify=False)
-    print(f"\n\nunauthenticated status code: {response.content}")
     assert response.status_code == 401
 
 
@@ -38,7 +37,6 @@ def test_create_authenticated(cal_type, cal_title, admin_token):
                              data=data,
                              headers={'AUTH-TOKEN': admin_token},
                              verify=False)
-    print(f"\n\nauthenticated status code: {response.status_code}\nbody: {response.content}\n")
     assert response.status_code in [200, 400, 409]
     content = json.loads(response.content)
     if response.status_code != 200:
@@ -55,5 +53,4 @@ def test_create_authenticated(cal_type, cal_title, admin_token):
 def test_get_unauthenticated():
     response = requests.get('https://tjtimer.dev/calendars/',
                             verify=False)
-    print(f"\n\nget unauthenticated status code: {response.status_code}\nbody: {response.content}\n")
     assert response.status_code in [200, 400, 409]

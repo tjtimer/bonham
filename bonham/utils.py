@@ -8,7 +8,8 @@ __all__ = [
     ]
 
 
-def prepared_uvloop(*, loop=None, debug=None):
+def prepared_uvloop(*, debug=None):
+    loop = asyncio.get_event_loop()
     if loop is None or loop.is_closed():
         loop = uvloop.new_event_loop()
         asyncio.set_event_loop(loop)

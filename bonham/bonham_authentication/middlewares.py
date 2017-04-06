@@ -1,6 +1,7 @@
 from aiohttp import web
 import jwt
 
+from bonham import db
 from bonham.bonham_authentication.models import Account
 from .token import verify_token
 

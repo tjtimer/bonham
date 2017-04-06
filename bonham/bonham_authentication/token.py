@@ -14,8 +14,8 @@ if DEBUG and not path.isfile(RSA_PUB):
 
 async def create(*, payload: dict = None) -> str:
     if payload is None:
-        raise ValueError(f"payload must not be None")
-    payload['exp'] = datetime.datetime.now() + datetime.timedelta(seconds=10)
+        raise ValueError(f"Keyword argument payload must be type dict and may not be None!")
+    payload['exp'] = datetime.datetime.now() + datetime.timedelta(hours=10)
     async with aiofiles.open(RSA_PEM, 'r') as secret_key_file:
         secret_key = await secret_key_file.read()
     token = jwt.encode(payload, secret_key, algorithm='RS256')

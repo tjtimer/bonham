@@ -5,7 +5,7 @@ from sqlalchemy import UniqueConstraint
 import sqlalchemy as sa
 from sqlalchemy_utils import ArrowType, ChoiceType
 
-from bonham.db import Association, Base, BaseModel, ForeignKey
+from bonham.db import Base, BaseModel, Connect, ForeignKey
 from bonham.validators import *
 from .constants import EntryStatus, ReminderType
 
@@ -101,7 +101,7 @@ class Entry(Base, BaseModel):
         return dict(calendar)
 
 
-class CalendarEntry(Base, Association):
+class CalendarEntry(Base, Connect):
     calendar_id = ForeignKey('calendar')
     entry_id = ForeignKey('entry')
 
@@ -112,21 +112,21 @@ class CalendarEntryReminder(Base, BaseModel):
     type = sa.Column(ChoiceType(ReminderType, impl=sa.Integer()))
 
 
-class CalendarAdmin(Base, Association):
+class CalendarAdmin(Base, Connect):
     account_id = ForeignKey('account')
     calendar_id = sa.Column(sa.Integer, nullable=False)
 
 
-class CalendarEditor(Base, Association):
+class CalendarEditor(Base, Connect):
     account_id = ForeignKey('account')
     calendar_id = sa.Column(sa.Integer, nullable=False)
 
 
-class EntryAdmin(Base, Association):
+class EntryAdmin(Base, Connect):
     account_id = ForeignKey('account')
     entry_id = sa.Column(sa.Integer, nullable=False)
 
 
-class EntryEditor(Base, Association):
+class EntryEditor(Base, Connect):
     account_id = ForeignKey('account')
     entry_id = sa.Column(sa.Integer, nullable=False)

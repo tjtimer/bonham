@@ -1,9 +1,11 @@
 from aiohttp import web
 from asyncpg import UniqueViolationError
 
+from bonham import db
 from bonham.bonham_authentication.models import Account
 from bonham.bonham_authentication.root import authentication_required_response
 from bonham.error_responses import invalid_data_response
+from bonham.serializer import serialize
 from bonham.utils import random_rgb
 from bonham.validators import is_valid_color
 from .models import Calendar, CalendarType
@@ -11,7 +13,6 @@ from .models import Calendar, CalendarType
 
 async def validate(data):
     invalid = dict()
-    print(f"\n\nvalidate calendar data: {data}")
     if not await CalendarType.valid_type(data['type']):
         has_to_be = "longer than 4 and shorter than 64 characters and must not contain special characters"
         invalid['calendar_type'] = dict(value=data['type'], has_to_be=has_to_be)
@@ -46,24 +47,22 @@ async def create_calendar(request):
         }
     try:
         calendar = await Calendar.create(request['connection'], data=cal_data)
-        calendar['type'] = await db.serialize(cal_type)
-        calendar_serialized = await db.serialize(calendar)
-        return web.json_response(dict(calendar=calendar_serialized))
+        calendar['type'] = cal_type
+        calendar_serialized = await serialize('calendar', calendar)
+        return web.json_response(calendar_serialized)
     except UniqueViolationError:
         return web.json_response(dict(error="You already have a calendar with that type and that title."), status=400)
 
 
 async def get_calendars(request):
-    calendars = {}
+    calendars = await db.get(request['connection'], table=Calendar.__table__)
     async with request['connection'].transaction():
-        for calendar in await db.get(request['connection'], table=Calendar.__table__):
-            cal_type = await db.get_by_id(request['connection'],
+        for calendar in calendars:
+            calendar['type'] = await db.get_by_id(request['connection'],
                                           table=CalendarType.__table__,
                                           object_id=calendar['type'])
-            owner = await db.get_by_id(request['connection'],
-                                       table=Account.__table__,
-                                       object_id=calendar['owner'])
-        calendar['owner'] = await db.serialize(owner)
-        calendar['type'] = await db.serialize(cal_type)
-        calendars[calendar['id']] = await db.serialize(calendar)
-    return web.json_response(dict(calendars=calendars))
+            calendar['owner'] = await db.get_by_id(request['connection'],
+                                                   table=Account.__table__,
+                                                   object_id=calendar['owner'])
+        calendars = await serialize('calendars', calendars)
+    return web.json_response(calendars)

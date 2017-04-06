@@ -3,8 +3,8 @@ import json
 import pytest
 import requests
 
+from bonham.local_settings import LOCAL_ADMIN
 from bonham.utils import prepared_uvloop
-from local_settings import LOCAL_ADMIN
 
 
 @pytest.fixture

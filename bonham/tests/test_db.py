@@ -1,5 +1,4 @@
 from datetime import timedelta
-import json
 import random
 
 import arrow
@@ -10,6 +9,7 @@ import pytest
 
 from bonham import db
 from bonham.constants import PrivacyStatus
+from bonham.db import BaseModel, Connect
 from bonham.settings import DSN
 
 
@@ -24,7 +24,10 @@ def test_create_tables(testmodel):
     model = db.create_tables(models=[testmodel])[0]
     assert 'testmodel' in model.metadata.tables.keys()
     for table in model.metadata.sorted_tables:
-        assert all(key in ['id', 'created', 'last_updated', 'privacy'] for key in table.c.keys())
+        print()
+        print("table")
+        print(table.c.keys())
+        assert isinstance(table, (BaseModel, Connect))
 
 
 @given(privacy=st.integers(min_value=1, max_value=7))
@@ -144,19 +147,3 @@ def test_delete(my_loop, testmodel, id):
                     assert del_model is None
 
     my_loop.run_until_complete(_test_delete())
-
-
-@given(id=st.integers(min_value=1, max_value=20000), privacy=st.integers(min_value=1, max_value=7),
-       hours=st.integers(min_value=1, max_value=1000))
-def test_serialize(my_loop, testmodel, id, privacy, hours):
-    async def _test_serialize():
-        data = dict(id=id, privacy=privacy)
-        data['created'] = created = arrow.utcnow().replace(hours=-hours)
-        data['last_updated'] = last_updated = arrow.utcnow()
-        serialized_data = await db.serialize(data)
-        assert isinstance(serialized_data, (dict,))
-        assert created.humanize() in json.loads(serialized_data)['created']
-        assert last_updated.humanize() in json.loads(serialized_data)['last_updated']
-        assert PrivacyStatus(privacy).label in json.loads(serialized_data)['privacy']
-
-    my_loop.run_until_complete(_test_serialize())

@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
 import asyncio
-from asyncio import Task, wait
+from asyncio import wait
 
 from aiohttp import web
 import aiohttp_jinja2
+import arrow
 import jinja2
 import sys
 from uvloop import EventLoopPolicy
@@ -22,7 +23,7 @@ from bonham.utils import prepared_uvloop
 # use uvloop
 asyncio.set_event_loop_policy(EventLoopPolicy())
 
-core_setup = [router, logger, db]
+core_setup = [db, router, logger]
 
 components = [auth, calendar, tags]
 
@@ -50,7 +51,8 @@ tables = db.create_tables(models=[
 
 async def setup_core(app):
     tasks = [app.loop.create_task(component.setup(app)) for component in core_setup]
-    return await wait(tasks)
+    await wait(tasks)
+    return app
 
 
 async def setup_components(app):
@@ -60,17 +62,13 @@ async def setup_components(app):
 
 
 async def prepare_response(request, response):
+    sys.stdout.write(f"prepare-response called!\n{response}\n{request}", flush=True)
     response.charset = 'utf-8'
     response.cookies.clear()
 
 
-async def cancel_tasks():
-    for task in Task.all_tasks():
-        task.cancel()
-
-
 async def shutdown(application: web.Application):
-    print(f"shutdown app called.")
+    print(f"Bonham App Server shutdown() called at {arrow.now()}.")
     if application:
         for component in components:
             await component.shutdown(application)
@@ -78,19 +76,19 @@ async def shutdown(application: web.Application):
         application['server'].close()
         await application['server'].wait_closed()
         await application['handler'].shutdown(60)
-        await cancel_tasks()
         await application.cleanup()
+    return
 
 
 async def startup(application: web.Application) -> None:
-    print(f"bonham -> root -> startup() called.\n\tadmins: {application['admins']}", flush=True)
+    print(f"root startup()\n\twith admins: {application['admins']}", flush=True)
 
-async def init_app(loop: asyncio.BaseEventLoop = None, port: int = None) -> web.Application:
+
+async def init_app(*, loop: asyncio.BaseEventLoop = None, port: int = None) -> web.Application:
     app = web.Application(middlewares=middlewares.all, loop=loop, debug=DEBUG)
-    app.on_startup.append(startup)
-    # app.on_shutdown.append(shutdown)
     app['wss'] = {}
     app['tables'] = [t.name for t in Base.metadata.sorted_tables]
+
     # setup aiohttp_jinja2 template_engine
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(TEMPLATE_DIR))
 
@@ -103,33 +101,38 @@ async def init_app(loop: asyncio.BaseEventLoop = None, port: int = None) -> web.
             slow_request_timeout=20)
 
     app['server'] = await loop.create_server(app['handler'], '127.0.1.2', port)
-    app.logger.info(f"server running on port {port}\nserver: {app['server']}\nhandler: {app['handler']}")
-    return await app.startup()
+    await startup(app)
+    print(f"\n\n{'*'*10} Bonham App Server - port {port} {'*'*10}\n\n", flush=True)
+    return app
 
 
 def main():
-    parser = ArgumentParser('Run a Bonham app instance on specified port.')
-    parser.add_argument('--port', '-p', type=int,
-                        help='port number for this server instance, type integer e.g 8000')
+    parser = ArgumentParser('Run a Bonham App Server instance on specified port.')
+    parser.add_argument('--development', '-d', action='store_true',
+                        help='if passed loop will not be closed.')
+    parser.add_argument('port', type=int,
+                        help='port number for this server instance , type: int (e.g 8080)')
     args = parser.parse_args()
     if args.port is None:
         args.port = int(input("choose a port:"))
     loop = prepared_uvloop(debug=DEBUG)
+    sys.stdout.write(f"\nrunning in development mode: {args.development}\n")
     app = loop.run_until_complete(init_app(loop=loop, port=args.port))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
-        sys.stdout.write("\n\nKeyboardInterrupt at bonham root\n\n")
+        sys.stdout.write("\n\nKeyboardInterrupt at Bonham App Server.\n\n")
         pass
-    except Exception as e:
-        sys.stdout.write(f"\n\n#########\nException at bonham root\n\n{type(e).__name__}")
+    except:
         pass
     finally:
-        sys.stdout.write(f"\n\n{'*'*10} Shutting down bonham app instance on port {args.port} {'*'*10}\n\n")
+        sys.stdout.write(f"\n\n{'*'*10} Shutting down Bonham App Server instance on port {args.port} {'*'*10}\n\n")
         loop.run_until_complete(shutdown(app))
-        loop.stop()
-        loop.close()
-        sys.stdout.write(f"Successfully shut down bonham app instance.")
+        if not args.development:
+            sys.stdout.write(f"stop and close loop")
+            loop.stop()
+            loop.close()
+        sys.stdout.write(f"Successfully shut down Bonham App Server instance.")
 
 
 if __name__ == '__main__':

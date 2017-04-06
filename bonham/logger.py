@@ -26,3 +26,4 @@ async def setup(app):
     app.logger.setLevel(LOG_LEVEL)
     app.logger.addHandler(log_file)
     print("end logger setup", flush=True)
+    return app

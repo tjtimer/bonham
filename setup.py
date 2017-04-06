@@ -32,6 +32,6 @@ setup(
                 'arrow',
                 'requests',
                 'hypothesis',
-                'pytest',
+            'pytest', 'curio',
                 ]
         )

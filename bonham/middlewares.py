@@ -58,7 +58,7 @@ async def db_middleware(app, handler):
                     response = await handler(request)
             return response
         except Exception as e:
-            print(f"\n\ndb engine middleware exception:\n\t{type(e).__name__}\n\t{e}", flush=True)
+            print(f"\n\ndatabase engine miwa exception:\n\t{type(e).__name__}\n\t{e}", flush=True)
             response = {
                 'error': f"database error: {type(e).__name__} ->{e}"
                 }

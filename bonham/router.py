@@ -1,8 +1,9 @@
-from bonham.settings import ASSETS_DIR, ASSETS_URL
+from aiohttp import web
+
 from bonham.views import index
 
 
-async def setup(app):
+async def setup(app) -> web.Application:
     """
     filling router table with 
     routes: ('route', handler, name)
@@ -16,8 +17,5 @@ async def setup(app):
     :type router: <class 'aiohttp.web_urldispatcher.UrlDispatcher'>
     :return: None
     """
-    print("start router setup", flush=True)
-    app.router.add_static(ASSETS_URL, path=ASSETS_DIR)
     app.router.add_get('/', index, name='ìndex')
-
-    print("end router setup", flush=True)
+    return app

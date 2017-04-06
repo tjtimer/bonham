@@ -2,6 +2,8 @@ from aiohttp import web
 from asyncpg import UniqueViolationError
 from passlib.hash import pbkdf2_sha512
 
+from bonham import db
+from bonham.serializer import serialize
 from .models import Account, validate_data
 from .token import *
 
@@ -14,7 +16,7 @@ async def sign_up(request):
                 del account['password']
                 payload = dict(email=account['email'], id=account['id'])
                 token = await create(payload=payload)
-                acc_serialized = await db.serialize(account)
+                acc_serialized = await serialize(account)
                 response = {
                     'account': acc_serialized,
                     'message': 'we send you an email with a link to verify and finish the sign up process.'
@@ -75,13 +77,10 @@ async def login(request):
             del account['password']
             payload = dict(email=account['email'], id=account['id'])
             token = await create(payload=payload)
-            acc_serialized = await db.serialize(account)
+            acc_serialized = await serialize('account', account)
             response = {
                 'account': acc_serialized,
-                'message': {
-                    'type': 'message',
-                    'message': 'successfully logged in'
-                    }
+                'message': 'successfully logged in'
                 }
             headers = {
                 'AUTH-TOKEN': token
@@ -102,7 +101,7 @@ async def token_login(request):
     token = await create(
             payload=dict(id=request['account']['id'], email=request['account']['email'])
             )
-    acc_serialized = await db.serialize(request['account'])
+    acc_serialized = await serialize(request['account'])
     headers = {
         'AUTH-TOKEN': token
         }

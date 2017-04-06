@@ -9,7 +9,7 @@ async def setup_routes(router):
 
 
 async def shutdown(app):
-    print(f"\n\nshutting down calendar app")
+    print(f"\n\nCalendar shut down")
 
 
 async def setup(app):

@@ -38,6 +38,7 @@ async def shutdown(app):
 
 
 async def setup(app):
+    print(f"Authentication setup", flush=True)
     auth = web.Application(loop=app.loop)
     await wait([
         ensure_future(setup_admins(app)),
@@ -45,5 +46,5 @@ async def setup(app):
         ])
     app.middlewares.append(auth_middleware)
     auth['failed_logins'] = {}
-    auth['authenticated_accounts'] = {}
-    app.add_subapp('/auth', auth)
+    auth['authenticated_accounts'] = set()
+    return app.add_subapp('/auth', auth)

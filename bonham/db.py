@@ -1,3 +1,5 @@
+from collections import Iterator, OrderedDict
+
 import asyncpg
 from asyncpg.connection import Connection
 import sqlalchemy as sa
@@ -66,7 +68,7 @@ class Connect(object):
         Usage:
             class MyModelConnection(Base, Connect):
                 left_id = ForeignKey('left')
-                right_id 0 ForeignKey('right')
+                right_id = ForeignKey('right')
     """
     @declared_attr
     def __tablename__(cls):
@@ -75,7 +77,7 @@ class Connect(object):
     id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
 
     async def get_or_create(self, connection: Connection, *,
-                            data: dict = None) -> dict:
+                            data: dict = None) -> OrderedDict:
         table = self.__table__
         where = ','.join([f"{key}={value}" for key, value in data.items()
                           if key in table.c.keys() and value is not None])
@@ -86,7 +88,7 @@ class Connect(object):
             values = ','.join([str(value) for value in data.values()])
             stmt = f"INSERT INTO tag ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
             row = await connection.fetchrow(stmt)
-        return dict(row)
+        return OrderedDict(row)
 
 
 class BaseModel(object):
@@ -109,13 +111,13 @@ class BaseModel(object):
         Models inheriting from BaseModel will have
         
             following columns:
-                id, created, last_updated, privacy
+                id, privacy, created, last_updated
             
             following methods:
                 create, update, delete, get_by_id, get
                 
-                where create, update delete and get_by_id return dict if successful or None if not
-                and get returns a generator containing dicts if successful or None if not.
+                where create, update delete and get_by_id return OrderedDict if successful or None if not
+                and get returns a generator containing OrderedDict(s) if record(s) exists or None if not.
     """
     @declared_attr
     def __tablename__(cls):
@@ -124,22 +126,22 @@ class BaseModel(object):
     id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
 
     @declared_attr
-    def last_updated(self):
-        return sa.Column(ArrowType(timezone=True), nullable=True, onupdate=sa.func.current_timestamp())
+    def privacy(self):
+        return sa.Column(ChoiceType(PrivacyStatus, impl=sa.Integer()), server_default='7')  # default is private
 
     @declared_attr
     def created(self):
         return sa.Column(ArrowType(timezone=True), default=sa.func.current_timestamp())
 
     @declared_attr
-    def privacy(self):
-        return sa.Column(ChoiceType(PrivacyStatus, impl=sa.Integer()), server_default='7')  # default is private
+    def last_updated(self):
+        return sa.Column(ArrowType(timezone=True), nullable=True, onupdate=sa.func.current_timestamp())
 
     def __str__(self):
         table = self.__table__
         return f"<{table}: {table.c.keys()}>"
 
-    async def create(self, connection, *, data: dict = None):
+    async def create(self, connection, *, data: dict = None) -> OrderedDict or None:
         table = self.__table__
         data = {
             key: value for key, value in data.items()
@@ -150,7 +152,7 @@ class BaseModel(object):
         stmt = f"INSERT INTO {table} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
         result = await connection.fetchrow(stmt)
         if result:
-            return dict(result)
+            return OrderedDict(result)
         else:
             return None
 
@@ -163,17 +165,17 @@ class BaseModel(object):
         stmt = f"UPDATE {table} SET {updates}, last_updated=CURRENT_TIMESTAMP WHERE {ref} = {data[ref]} RETURNING *"
         result = await connection.fetchrow(stmt)
         if result:
-            return dict(result)
+            return OrderedDict(result)
         else:
             return None
 
     async def delete(self, connection, *,
-                     id: int = None):
+                     id: int = None) -> OrderedDict or None:
         table = self.__table__
         stmt = f"DELETE FROM {table} WHERE id={id} RETURNING *"
         row = await connection.fetchrow(stmt)
         if row:
-            return dict(row)
+            return OrderedDict(row)
         return None
 
     async def get(self, connection, *,
@@ -181,7 +183,7 @@ class BaseModel(object):
                   where: str = None,
                   order_by: str = None,
                   offset: int = None,
-                  limit: int = None):
+                  limit: int = None) -> Iterator or None:
         table = self.__table__
         if fields is None:
             stmt = f"SELECT * FROM {table} "
@@ -198,16 +200,16 @@ class BaseModel(object):
         stmt += f"ORDER BY {order_by} OFFSET {offset} LIMIT {limit}"
         rows = await connection.fetch(stmt)
         if len(rows):
-            return (dict(row) for row in rows)
+            return (OrderedDict(row) for row in rows)
         return None
 
     async def get_by_id(self, connection: Connection, *,
-                        id=None):
+                        id=None) -> OrderedDict or None:
         table = self.__table__
         stmt = f"SELECT * FROM {table} WHERE id={id}"
         row = await connection.fetchrow(stmt)
         if row:
-            return dict(row)
+            return OrderedDict(row)
         return None
 
 

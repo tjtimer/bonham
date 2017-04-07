@@ -5,7 +5,7 @@ from bonham.settings import SERVER_NAME, SERVER_ROOT
 
 
 def main(*, config=None):
-    print("create a new app. Type: CTR+C to abort.")
+    print("create a new app. Type: CTRL+C to abort.")
     """
         config will be a dictionary with data we already got from the user, if he resumes from abortion
     """

@@ -12,11 +12,6 @@ from uvloop import EventLoopPolicy
 from bonham import db, logger, middlewares, router
 from bonham.bonham_authentication import root as auth
 from bonham.bonham_authentication.models import *
-from bonham.bonham_calendar import root as calendar
-from bonham.bonham_media.models import *
-from bonham.bonham_profile.models import *
-from bonham.bonham_tag import root as tags
-from bonham.bonham_tag.models import *
 from bonham.settings import DEBUG, TEMPLATE_DIR
 from bonham.utils import prepared_uvloop
 
@@ -25,27 +20,11 @@ asyncio.set_event_loop_policy(EventLoopPolicy())
 
 core_setup = [db, router, logger]
 
-components = [auth, calendar, tags]
+components = [auth]
 
 tables = db.create_tables(models=[
     Account,
     AccessToken,
-    Group,
-    GroupAdmin,
-    GroupEditor,
-    User,
-    GGConnection,
-    GUConnection,
-    UUConnection,
-    Gallery,
-    GalleryAdmin,
-    GalleryEditor,
-    Picture,
-    PictureAdmin,
-    PictureEditor,
-    GalleryPicture,
-    Tag,
-    TaggedItem
     ])
 
 
@@ -87,7 +66,7 @@ async def startup(application: web.Application) -> None:
 async def init_app(*, loop: asyncio.BaseEventLoop = None, port: int = None) -> web.Application:
     app = web.Application(middlewares=middlewares.all, loop=loop, debug=DEBUG)
     app['wss'] = {}
-    app['tables'] = [t.name for t in Base.metadata.sorted_tables]
+    app['tables'] = [t.name for t in db.Base.metadata.sorted_tables]
 
     # setup aiohttp_jinja2 template_engine
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(TEMPLATE_DIR))
@@ -116,14 +95,13 @@ def main():
     if args.port is None:
         args.port = int(input("choose a port:"))
     loop = prepared_uvloop(debug=DEBUG)
-    sys.stdout.write(f"\nrunning in development mode: {args.development}\n")
+    if args.development:
+        sys.stdout.write(f"\nrunning in development mode: {args.development}\n")
     app = loop.run_until_complete(init_app(loop=loop, port=args.port))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         sys.stdout.write("\n\nKeyboardInterrupt at Bonham App Server.\n\n")
-        pass
-    except:
         pass
     finally:
         sys.stdout.write(f"\n\n{'*'*10} Shutting down Bonham App Server instance on port {args.port} {'*'*10}\n\n")

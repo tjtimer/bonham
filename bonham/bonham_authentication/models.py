@@ -1,5 +1,6 @@
 from asyncio import gather
 
+from asyncpg.connection import Connection
 import sqlalchemy as sa
 from sqlalchemy_utils import ArrowType, LocaleType, PasswordType
 
@@ -41,6 +42,15 @@ class Account(Base, BaseModel):
     activation_key = sa.Column(sa.String)
     disabled = sa.Column(ArrowType)
 
+    async def create(self, connection: Connection, data=None) -> dict or None:
+        table = self.__table__
+        stmt = table.insert().values(data).returning(table)
+        statement = str(stmt.compile(compile_kwargs=dict(literal_binds=True)))
+        result = await connection.fetchrow(statement)
+        if result:
+            return dict(result)
+        else:
+            return None
 
 class AccessToken(Base, BaseModel):
     __tablename__ = 'access_token'

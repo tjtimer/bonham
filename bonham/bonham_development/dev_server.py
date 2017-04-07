@@ -50,7 +50,7 @@ async def file_watchers(watch_js):
             raise
 
 
-async def app_instance():
+async def run_app():
     print(f"starting app server")
     tests_started = False
     app = subprocess.Popen(FUNCTION_CALL.split(' '),
@@ -71,7 +71,7 @@ async def app_instance():
         raise
 
 
-async def test_instance():
+async def run_tests():
     await start_tests.wait()
     print(f"starting tests server")
     tests = subprocess.Popen(['pytest', '-v', '--pyargs', 'bonham'],
@@ -94,9 +94,9 @@ async def manager(cmd_args):
     while True:
         try:
             async with curio.TaskGroup() as tg:
-                await tg.spawn(app_instance)
                 if cmd_args.with_tests:
-                    await tg.spawn(test_instance)
+                    await tg.spawn(run_tests)
+                await tg.spawn(run_app)
                 fw = await tg.spawn(file_watchers, cmd_args.watch_js)
                 await fw.join()
                 await tg.cancel_remaining()

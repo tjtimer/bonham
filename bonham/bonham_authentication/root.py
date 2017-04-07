@@ -23,15 +23,17 @@ async def setup_routes(router):
 
 async def setup_admins(app):
     account = Account()
+    app['admins'] = dict()
     async with app['db'].acquire() as connection:
         async with connection.transaction():
             where = f"is_superuser IS TRUE"
-            admins = list(await account.get(connection, where=where))
-            app['admins'] = {admin['id']: {'id': admin['id'], 'email': admin['email']} for admin in admins}
-            if not len(app['admins']):
+            admins = await account.get(connection, where=where)
+            if not admins:
                 acc_data = ADMIN
                 admin = await account.create(connection, data=acc_data)
-                app['admins'][admin['id']] = admin
+                app['admins'][admin['id']] = {'id': admin['id'], 'email': admin['email']}
+            else:
+                app['admins'] = {admin['id']: {'id': admin['id'], 'email': admin['email']} for admin in admins}
     return app
 
 async def shutdown(app):

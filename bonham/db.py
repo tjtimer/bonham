@@ -60,11 +60,33 @@ def ForeignKey(related, ondelete=None, onupdate=None, primary_key=None):
 
 
 class Connect(object):
+    """
+        Parent class for all Models that connect two Models.
+        
+        Usage:
+            class MyModelConnection(Base, Connect):
+                left_id = ForeignKey('left')
+                right_id 0 ForeignKey('right')
+    """
     @declared_attr
     def __tablename__(cls):
         return cls.__name__.lower()
 
     id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
+
+    async def get_or_create(self, connection: Connection, *,
+                            data: dict = None) -> dict:
+        table = self.__table__
+        where = ','.join([f"{key}={value}" for key, value in data.items()
+                          if key in table.c.keys() and value is not None])
+        stmt = f"SELECT * FROM {table} WHERE {where}'"
+        row = await connection.fetchrow(stmt)
+        if not row:
+            columns = ','.join(data.keys())
+            values = ','.join([str(value) for value in data.values()])
+            stmt = f"INSERT INTO tag ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
+            row = await connection.fetchrow(stmt)
+        return dict(row)
 
 
 class BaseModel(object):
@@ -124,7 +146,7 @@ class BaseModel(object):
             if key in table.c.keys() and value is not None
             }
         columns = ','.join(data.keys())
-        values = ','.join([f"{value}" for value in data.values()])
+        values = ','.join([str(value) for value in data.values()])
         stmt = f"INSERT INTO {table} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
         result = await connection.fetchrow(stmt)
         if result:

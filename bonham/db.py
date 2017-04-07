@@ -131,7 +131,7 @@ class BaseModel(object):
 
     @declared_attr
     def created(self):
-        return sa.Column(ArrowType(timezone=True), default=sa.func.current_timestamp())
+        return sa.Column(ArrowType(timezone=True), server_default=sa.func.current_timestamp())
 
     @declared_attr
     def last_updated(self):
@@ -153,7 +153,7 @@ class BaseModel(object):
             }
         columns = ','.join(data.keys())
         values = ','.join([str(value) for value in data.values()])
-        stmt = f"INSERT INTO {table} ({columns}) VALUES ({values}, DEFAULT) RETURNING *"
+        stmt = f"INSERT INTO {table} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
         result = await connection.fetchrow(stmt)
         if result:
             return dict(result)

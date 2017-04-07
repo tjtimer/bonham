@@ -1,8 +1,6 @@
 import asyncpg
 from asyncpg.connection import Connection
 import sqlalchemy as sa
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 import sqlamp
@@ -61,12 +59,6 @@ def ForeignKey(related, ondelete=None, onupdate=None, primary_key=None):
                      primary_key=primary_key)
 
 
-def table_name(value):
-    table_name = ''.join(value.replace(letter, f"_{letter.lower()}")
-                         for letter in value[1:] if ord(letter) in range(65, 91))
-    return table_name.lower()
-
-
 class Connect(object):
     @declared_attr
     def __tablename__(cls):
@@ -76,6 +68,33 @@ class Connect(object):
 
 
 class BaseModel(object):
+    """
+        Parent class for all Models that define tables and do not connect Models.
+        
+        Usage:
+            Model definition:
+                class MyModel(Base, BaseModel):
+                    ...
+            
+            creating a new table entry:
+                entry = await MyModel().create(connection, data=dict(data))
+            
+            updating an existing entry:
+                entry = await MyModel().update(connection, ref=<str: column_name>, data=dict(data))
+                
+                where ref is optional and defaults to 'id'
+        
+        Models inheriting from BaseModel will have
+        
+            following columns:
+                id, created, last_updated, privacy
+            
+            following methods:
+                create, update, delete, get_by_id, get
+                
+                where create, update delete and get_by_id return dict if successful or None if not
+                and get returns a generator containing dicts if successful or None if not.
+    """
     @declared_attr
     def __tablename__(cls):
         return cls.__name__.lower()
@@ -95,84 +114,86 @@ class BaseModel(object):
         return sa.Column(ChoiceType(PrivacyStatus, impl=sa.Integer()), server_default='7')  # default is private
 
     def __str__(self):
-        return f"<{self.__table__}: {vars(self)}>"
+        table = self.__table__
+        return f"<{table}: {table.c.keys()}>"
 
-    async def create(self, connection):
-        keys = self.__table__.c.keys()
+    async def create(self, connection, *, data: dict = None):
+        table = self.__table__
         data = {
-            key: value for key, value in vars(self).items()
-            if key in keys
+            key: value for key, value in data.items()
+            if key in table.c.keys() and value is not None
             }
-        data['created'] = f"TIMESTAMP \'{arrow.utcnow()}\'"
-        try:
-            stmt = self.__table__.insert().values(data).returning(self.__table__)
-            result = await connection.fetchrow(str(stmt.compile(compile_kwargs={'literal_binds': True})))
-            return vars(self).update(dict(result))
-        except Exception as e:
-            print(f'create {self.__table__} exception: {type(e).__name__} -> {e}')
-            raise
-
-    async def get(self, connection, **kwargs):
-        k_keys = kwargs.keys()
-        if 'fields' not in k_keys:
-            stmt = self.__table__.select()
+        columns = ','.join(data.keys())
+        values = ','.join([f"{value}" for value in data.values()])
+        stmt = f"INSERT INTO {table} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
+        result = await connection.fetchrow(stmt)
+        if result:
+            return dict(result)
         else:
-            stmt = select([self.__table__.c[key] for key in kwargs['fields'].split(',')])
-        if 'where' in k_keys:
-            stmt = stmt.where(sa.text(kwargs['where']))
-        if 'order_by' not in k_keys:
-            kwargs['order_by'] = 'id'
-        if 'offset' not in k_keys:
-            kwargs['offset'] = 0
-        if 'limit' not in k_keys:
-            kwargs['limit'] = 1000
-        stmt = stmt.order_by(kwargs['order_by']).offset(kwargs['offset']).limit(kwargs['limit'])
-        try:
-            statement = str(stmt.compile(compile_kwargs={'literal_binds': True}))
-            return ({key: value for key, value in row.items()} for row in await connection.fetch(statement))
-        except Exception as e:
-            print(f"get {self.__table__}s exception: {type(e).__name__}: {e}")
-            raise
+            return None
 
-    async def update(self, connection, key=None):
-        self.last_updated = f"TIMESTAMP \'{arrow.utcnow()}\'"
-        data = {key: value for key, value in vars(self).items() if key in self.__table__.c.keys() and value is not
-                None}
-        if key is None:
-            key = 'id'
-        stmt = self.__table__.update().where(self.__table__.c[key] == vars(self)[key]).values(
-                data).returning(self.__table__)
-        try:
-            result = await connection.fetchrow(str(stmt.compile(compile_kwargs={'literal_binds': True})))
-            return vars(self).update(dict(result))
-        except TypeError as e:
-            raise IntegrityError(f"Update {self.__table__} error. Record with {key} = {vars(self)[key]} not found.",
-                                 type(e).__name__,
-                                 e)
-        except Exception as e:
-            print(f"update {self.__table__} exception: {type(e).__name__}: {e.value}", flush=True)
-            raise
+    async def update(self, connection, *, ref=None, data: dict = None):
+        table = self.__table__
+        if ref is None:
+            ref = 'id'
+        updates = ','.join(f"{key}={value} " for key, value in data.items()
+                           if key in table.c.keys() and key not in [ref, 'id', 'created'] and value is not None)
+        stmt = f"UPDATE {table} SET {updates}, last_updated=CURRENT_TIMESTAMP WHERE {ref} = {data[ref]} RETURNING *"
+        result = await connection.fetchrow(stmt)
+        if result:
+            return dict(result)
+        else:
+            return None
 
-    async def delete(self, connection):
-        stmt = self.__table__.delete().where(self.__table__.c.id == self.id)
-        try:
-            statement = str(stmt.compile(compile_kwargs={'literal_binds': True}))
-            await connection.execute(statement)
-            del self
-            return
-        except Exception as e:
-            print(f'delete {self.__table__} exception: {e}')
-            raise
-
-
-async def check_existence(self, connection: Connection, *, object_id: int = None, fields: list = None) -> dict:
-    if fields is None:
-        fields = ['*']
-    try:
-        statement = f"SELECT {', '.join(fields)} FROM {self.__table__} WHERE id={object_id}"
-        row = await connection.fetchrow(statement)
+    async def delete(self, connection, *,
+                     id: int = None):
+        table = self.__table__
+        stmt = f"DELETE FROM {table} WHERE id={id} RETURNING *"
+        row = await connection.fetchrow(stmt)
         if row:
             return dict(row)
         return None
-    except Exception as e:
-        raise
+
+    async def get(self, connection, *,
+                  fields: str = None,
+                  where: str = None,
+                  order_by: str = None,
+                  offset: int = None,
+                  limit: int = None):
+        table = self.__table__
+        if fields is None:
+            stmt = f"SELECT * FROM {table} "
+        else:
+            stmt = f"SELECT {fields} FROM {table} "
+        if where is not None:
+            stmt += f"WHERE {where} "
+        if order_by is None:
+            order_by = 'id'
+        if offset is None:
+            offset = 0
+        if limit is None:
+            limit = 1000
+        stmt += f"ORDER BY {order_by} OFFSET {offset} LIMIT {limit}"
+        rows = await connection.fetch(stmt)
+        if len(rows):
+            return (dict(row) for row in rows)
+        return None
+
+    async def get_by_id(self, connection: Connection, *,
+                        id=None):
+        table = self.__table__
+        stmt = f"SELECT * FROM {table} WHERE id={id}"
+        row = await connection.fetchrow(stmt)
+        if row:
+            return dict(row)
+        return None
+
+
+async def check_existence(connection: Connection, *,
+                          table: sa.Table = None,
+                          id: int = None) -> bool:
+    statement = f"SELECT id FROM {table} WHERE id={id}"
+    row = await connection.execute(statement)
+    if row:
+        return True
+    return False

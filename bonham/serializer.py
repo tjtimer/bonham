@@ -17,6 +17,15 @@ async def camel_case(value):
     return cc_value
 
 
+async def un_camel_case(value):
+    n_value = ''
+    for letter in value:
+        if ord(letter) in range(65, 91):
+            letter = f"_{letter.lower()}"
+        n_value += letter
+    return n_value
+
+
 async def to_json(key: str, value):
     """
     transform a plain dict (no nested objects) to a json serializable dict

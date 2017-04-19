@@ -1,228 +1,248 @@
-from collections import Iterator
+import logging
+from typing import Any, Iterator
 
 import asyncpg
-from asyncpg.connection import Connection
+import psycopg2 as psql
 import sqlalchemy as sa
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy_utils import ArrowType, ChoiceType
-import sqlamp
+from aiohttp import web
+from aiohttp.signals import Signal
+from asyncpg.connection import Connection
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from bonham.constants import PrivacyStatus
-from bonham.settings import DSN
+from bonham import BaseModel
+from bonham.settings import DEVELOPMENT_MODE, DSN
 
-__all__ = [
-    "Base",
-    "BaseModel",
-    "ForeignKey",
-    "create_tables",
-    "drop_tables",
-    "create",
-    "get",
-    "get_by_id",
-    "update",
-    "delete",
-    "serialize",
-    "setup"
-    ]
+__all__ = ['setup', 'shutdown', 'ForeignKey', 'create_db', 'drop_db', 'create_table', 'drop_table',
+           'create', 'update', 'delete', 'get', 'get_by_id', 'get_by_key']
 
-Base = declarative_base(metaclass=sqlamp.DeclarativeMeta)
+#  engine to use for table creation
+engine = sa.create_engine(DSN, client_encoding='utf8')
 
 
-async def setup(app):
-    app['db'] = await asyncpg.create_pool(dsn=DSN, loop=app.loop, command_timeout=60)
-    #  print("end db setup", flush=True)
+def create_db(name: str, *, user: str=None, password: str=None) -> None:
+    """
+    Create a new database with given name
+    :param name: name of database to create
+    :param user: user name / database role
+    :param password: database server password for given user / role
+    :return: None or raise Exception
+    """
+    if user is None or password is None:
+        raise TypeError("Missing required keyword arguments user and/or password")
+    try:
+        con = psql.connect(
+                dbname='postgres',
+                user=user, host='localhost',
+                password=password
+                )
+        con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)  # <-- ADD THIS LINE
+        cur = con.cursor()
+        cur.execute(f"CREATE DATABASE {name}")
+    except psql.ProgrammingError as e:
+        log = logging.getLogger()
+        log.warning(f"CREATE DATABASE ERROR: {e} ")
+        raise
+
+
+def drop_db(name: str, *, user: str=None, password: str=None) -> None:
+    """
+    Drop database with given name
+    :param name: name of database to create
+    :param user: user name / database role
+    :param password: database server password for given user / role
+    :return: None or raise Exception
+    """
+    if user is None or password is None:
+        raise TypeError("Missing required keyword arguments user and/or password")
+    try:
+        con = psql.connect(
+                dbname='postgres',
+                user=user, host='localhost',
+                password=password
+                )
+        con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cur = con.cursor()
+        cur.execute(f"DROP DATABASE {name}")
+    except psql.OperationalError as e:
+        log = logging.getLogger()
+        log.warning(f"DROP DATABASE ERROR: {e} ")
+        raise
+
+
+async def setup(app: web.Application) -> web.Application:
+    """
+    Create a connection pool to a postgresql database and setup signals. Add this to given app.
+    
+    Usage:
+        to get a connection as context manager
+        async with app.db.acquire() as connection:
+            result = await connection.execute(query)
+        
+        to listen to signals use any list methods, e.g. app.db.on_obj_created.append(my_listener_func)
+        to send a signal use coroutine send, e.g. await app.db.on_obj_created.send(*args, **kwargs)
+    :param app: application instance
+    :return: updated application instance
+    """
+    db = await asyncpg.create_pool(dsn=DSN, loop=app.loop, command_timeout=60)
+    db.tables = {}
+    db.on_obj_created = Signal(app)
+    db.on_obj_updated = Signal(app)
+    db.on_obj_deleted = Signal(app)
+    app.db = db
     return app
 
+async def shutdown(app):
+    await app.db.close()
+    print(f"app db is closed.")
+    return app
 
-def create_tables(*, models=None):
-    engine = sa.create_engine(DSN, client_encoding='utf8', echo=True)
-    for model in models:
-        model.metadata.bind = engine
-    Base.metadata.create_all()
-    return [model.__table__ for model in models]
+async def create_table(model: BaseModel) -> sa.Table:
+    """
+    Create a new table 
+    :param model: a representation of the table to create (model attributes will be table columns) 
+    :return: the newly created table as an instance of sqlalchemy table
+    """
+    model.__table__.create(engine, checkfirst=True)
+    return model.__table__
 
 
-def drop_tables(*, tables=None):
-    engine = sa.create_engine(DSN, client_encoding='utf8', echo=True)
-    connection = engine.connect()
-    for table in tables:
-        connection.execute(f"DROP TABLE {table} CASCADE")
+async def drop_table(connection, table):
+    if not DEVELOPMENT_MODE:
+        return
+    connection.execute(f"DROP TABLE {table} CASCADE")
     connection.close()
 
 
-def ForeignKey(related, ondelete=None, onupdate=None, primary_key=None):
-    if ondelete is None:
-        ondelete = "CASCADE"
-    if onupdate is None:
-        onupdate = "CASCADE"
-    if primary_key is None:
-        primary_key = True
+def ForeignKey(related: str, **kwargs) -> sa.Column:
+    """
+    Shortcut for sqlalchemy's ForeignKey.  
+    :param related: table name of related object
+    :param kwargs: contains config options of ForeignKey, like ondelete, onupdate (for both default is CASCADE)
+                        or primary_key (default is True)
+                         read postgresql documentation for more information
+                         https://www.postgresql.org/docs/9.6/static/ddl-constraints.html#DDL-CONSTRAINTS-FK
+    :return: Foreignkey definition
+    """
+    ondelete = kwargs.get('ondelete', "CASCADE")
+    onupdate = kwargs.get('onupdate', "CASCADE")
+    primary_key = kwargs.get('primary_key', True)
     return sa.Column(sa.Integer, sa.ForeignKey(f"{related}.id", ondelete=ondelete, onupdate=onupdate),
                      primary_key=primary_key)
 
-
-class Connect(object):
+async def create(connection, table: str, *, data: dict = None) -> dict or None:
     """
-        Parent class for all Models that connect two Models.
-        
-        Usage:
-            class MyModelConnection(Base, Connect):
-                left_id = ForeignKey('left')
-                right_id = ForeignKey('right')
+    Create a new row in given table.
+    :param connection:  Connection to database
+    :param table: table name
+    :param data: key: value pairs where keys are column names and values the corresponding values
+    :return: new row as a dict
     """
-    @declared_attr
-    def __tablename__(cls):
-        return cls.__name__.lower()
-
-    id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
-
-    async def get_or_create(self, connection: Connection, *,
-                            data: dict = None) -> dict:
-        table = self.__table__
-        where = ','.join([f"{key}={value}" for key, value in data.items()
-                          if key in table.c.keys() and value is not None])
-        stmt = f"SELECT * FROM {table} WHERE {where}'"
-        row = await connection.fetchrow(stmt)
-        if not row:
-            columns = ','.join(data.keys())
-            values = ','.join([str(value) for value in data.values()])
-            stmt = f"INSERT INTO tag ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
-            row = await connection.fetchrow(stmt)
-        return dict(row)
-
-
-class BaseModel(object):
-    """
-        Parent class for all Models that define tables and do not connect Models.
-        
-        Usage:
-            Model definition:
-                class MyModel(Base, BaseModel):
-                    ...
-            
-            creating a new table entry:
-                entry = await MyModel().create(connection, data=dict(data))
-            
-            updating an existing entry:
-                entry = await MyModel().update(connection, ref=<str: column_name>, data=dict(data))
-                
-                where ref is optional and defaults to 'id'
-        
-        Models inheriting from BaseModel will have
-        
-            following columns:
-                id, privacy, created, last_updated
-            
-            following methods:
-                create, update, delete, get_by_id, get
-                
-                where create, update delete and get_by_id return dict if successful or None if not
-                and get returns a generator containing dict(s) if record(s) exists or None if not.
-    """
-    @declared_attr
-    def __tablename__(cls):
-        return cls.__name__.lower()
-
-    id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
-
-    @declared_attr
-    def privacy(self):
-        return sa.Column(ChoiceType(PrivacyStatus, impl=sa.Integer()), server_default='7')  # default is private
-
-    @declared_attr
-    def created(self):
-        return sa.Column(ArrowType(timezone=True), server_default=sa.func.current_timestamp())
-
-    @declared_attr
-    def last_updated(self):
-        return sa.Column(ArrowType(timezone=True), nullable=True, onupdate=sa.func.current_timestamp())
-
-    @declared_attr
-    def update_count(self):
-        return sa.Column(sa.Integer, server_default='0')
-
-    def __str__(self):
-        table = self.__table__
-        return f"<{table}: {table.c.keys()}>"
-
-    async def create(self, connection, *, data: dict = None) -> dict or None:
-        table = self.__table__
-        data = {
-            key: value for key, value in data.items()
-            if key in table.c.keys() and value is not None
-            }
-        columns = ','.join(data.keys())
-        values = ','.join([str(value) for value in data.values()])
-        stmt = f"INSERT INTO {table} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
-        result = await connection.fetchrow(stmt)
-        if result:
-            return dict(result)
-        else:
-            return None
-
-    async def update(self, connection, *, ref=None, data: dict = None):
-        table = self.__table__
-        if ref is None:
-            ref = 'id'
-        updates = ','.join(f"{key}={value} " for key, value in data.items()
-                           if key in table.c.keys() and key not in [ref, 'id', 'created'] and value is not None)
-        defaults = "last_updated=CURRENT_TIMESTAMP, update_count=update_count+1"
-        stmt = f"UPDATE {table} SET {updates}, {defaults} WHERE {ref} = {data[ref]} RETURNING *"
-        result = await connection.fetchrow(stmt)
-        if result:
-            return dict(result)
-        else:
-            return None
-
-    async def delete(self, connection, *,
-                     id: int = None) -> dict or None:
-        table = self.__table__
-        stmt = f"DELETE FROM {table} WHERE id={id} RETURNING *"
-        row = await connection.fetchrow(stmt)
-        if row:
-            return dict(row)
+    data = {
+        key: value for key, value in data.items()
+        if key in table.c.keys() and value is not None
+        }
+    columns = ','.join(data.keys())
+    values = ','.join([str(value) for value in data.values()])
+    stmt = f"INSERT INTO {table} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
+    result = await connection.fetchrow(stmt)
+    if result:
+        return dict(result)
+    else:
         return None
 
-    async def get(self, connection, *,
-                  fields: str = None,
-                  where: str = None,
-                  order_by: str = None,
-                  offset: int = None,
-                  limit: int = None) -> Iterator or None:
-        table = self.__table__
-        if fields is None:
-            stmt = f"SELECT * FROM {table} "
-        else:
-            stmt = f"SELECT {fields} FROM {table} "
-        if where is not None:
-            stmt += f"WHERE {where} "
-        if order_by is None:
-            order_by = 'id'
-        if offset is None:
-            offset = 0
-        if limit is None:
-            limit = 1000
-        stmt += f"ORDER BY {order_by} OFFSET {offset} LIMIT {limit}"
-        rows = await connection.fetch(stmt)
-        if len(rows):
-            return (dict(row) for row in rows)
+async def update(connection: Connection, table: str, *, data: dict = None, **kwargs) -> dict or None:
+    """
+    Update a single row in given table.
+    :param connection:  Connection to database
+    :param table: table name
+    :param data: key: value pairs with data (must contain object id or reference key and value if kwargs['ref'] is given)
+    :return: updated row as dict containing all columns or those specified by kwargs['return'] 
+    """
+    ref = kwargs.get('ref', 'id')
+    ret = kwargs.get('return', '*')
+    updates = ','.join(f"{key}={value} " for key, value in data.items()
+                       if key not in [ref, 'id', 'created'] and value is not None)
+    defaults = "last_updated=CURRENT_TIMESTAMP, update_count=update_count+1"
+    stmt = f"UPDATE {table} SET {updates}, {defaults} WHERE {ref} = '{data[ref]}' RETURNING {','.join(ret)}"
+    result = await connection.fetchrow(stmt)
+    if result:
+        return dict(result)
+    else:
         return None
 
-    async def get_by_id(self, connection: Connection, *,
-                        id=None) -> dict or None:
-        table = self.__table__
-        stmt = f"SELECT * FROM {table} WHERE id={id}"
-        row = await connection.fetchrow(stmt)
-        if row:
-            return dict(row)
-        return None
+async def delete(connection, table: str, *, o_id: int = None) -> int or None:
+    """
+    Delete a single row from the given table.
+    :param connection:  Connection to database
+    :param table: table name
+    :param o_id: id of object to delete
+    :return: id of deleted object or None
+    """
+    stmt = f"DELETE FROM {table} WHERE id={o_id}"
+    result = await connection.fetchval(stmt)
+    if result:
+        return result
+    return None
 
+async def get(connection: Connection, table: str, *, where: str = None, **kwargs) -> Iterator or None:
+    """
+    Get all rows that match the given parameters/filters.
+    :param connection:  Connection to database
+    :param table: table name
+    :param where: filter string (e.g. "id=<some_id> AND name=<some_name>")
+    :return: a generator with every row as dict containing all columns or those specified by kwargs['fields'] 
+    :rtype: generator / Iterator
+    """
+    fields = kwargs.get('fields', '*')
+    order_by = kwargs.get('order_by', 'id')
+    offset = kwargs.get('offset', 0)
+    limit = kwargs.get('limit', 100)
+    stmt = f"SELECT {','.join(fields)} FROM {table} "
+    if where is not None:
+        stmt += f"WHERE {where} "
+    stmt += f"ORDER BY {order_by} OFFSET {offset} LIMIT {limit}"
+    rows = await connection.fetch(stmt)
+    if len(rows):
+        return (dict(row) for row in rows)
+    return None
 
-async def check_existence(connection: Connection, *,
-                          table: sa.Table = None,
-                          id: int = None) -> bool:
-    statement = f"SELECT id FROM {table} WHERE id={id}"
-    row = await connection.execute(statement)
+async def get_by_id(connection: Connection, table: str, *, o_id: int = None, **kwargs) -> dict or None:
+    """
+    Get a single row by given id.
+    :param connection:  Connection to database
+    :param table: table name
+    :param o_id: id of object
+    :return: the matching row as dict containing all columns or those specified by kwargs['fields'] 
+    """
+    fields = kwargs.get('fields', '*')
+    stmt = f"SELECT {','.join(fields)} FROM {table} WHERE id={o_id}"
+    row = await connection.fetchrow(stmt)
     if row:
-        return True
-    return False
+        return dict(row)
+    return None
+
+async def get_by_key(connection: Connection, table: str, *,
+                     key: str = None, value: Any = None, **kwargs) -> dict or Iterator or None:
+    """
+    Get row(s) by given key value pair.
+    :param connection:  Connection to database
+    :param table: table name
+    :param key: name of referenced column
+    :param value: value to search for
+    :returns: if kwargs['many'] and kwargs['many'] is True this method returns an generator / Iterator
+                    containing each matching row as a dict else returns a single matching row as dict
+    """
+    fields = kwargs.get('fields', '*')
+    many = kwargs.get('many', False)
+    operator = kwargs.get('operator', '=')
+    stmt = f"SELECT {','.join(fields)} FROM {table} WHERE {key} {operator} '{value}'"
+    if many:
+        rows = await connection.fetch(stmt)
+        if rows:
+            return (dict(row) for row in rows)
+        else:
+            return None
+    row = await connection.fetchrow(stmt)
+    if row:
+        return dict(row)
+    return None

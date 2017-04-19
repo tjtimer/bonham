@@ -9,7 +9,7 @@ from aiohttp.signals import Signal
 from asyncpg.connection import Connection
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from bonham import BaseModel
+from bonham.models import BaseModel
 from bonham.settings import DEVELOPMENT_MODE, DSN
 
 __all__ = ['setup', 'shutdown', 'ForeignKey', 'create_db', 'drop_db', 'create_table', 'drop_table',
@@ -78,17 +78,16 @@ async def setup(app: web.Application) -> web.Application:
         async with app.db.acquire() as connection:
             result = await connection.execute(query)
         
-        to listen to signals use any list methods, e.g. app.db.on_obj_created.append(my_listener_func)
-        to send a signal use coroutine send, e.g. await app.db.on_obj_created.send(*args, **kwargs)
+        to listen to signals use any list methods, e.g. app.on_db_obj_created.append(my_listener_func)
+        to send a signal use coroutine send, e.g. await app.on_db_obj_created.send(*args, **kwargs)
     :param app: application instance
     :return: updated application instance
     """
-    db = await asyncpg.create_pool(dsn=DSN, loop=app.loop, command_timeout=60)
-    db.tables = {}
-    db.on_obj_created = Signal(app)
-    db.on_obj_updated = Signal(app)
-    db.on_obj_deleted = Signal(app)
-    app.db = db
+    app.db = await asyncpg.create_pool(dsn=DSN, loop=app.loop, command_timeout=60)
+    app.tables = {}
+    app.on_db_obj_created = Signal(app)
+    app.on_db_obj_updated = Signal(app)
+    app.on_db_obj_deleted = Signal(app)
     return app
 
 async def shutdown(app):
@@ -129,21 +128,23 @@ def ForeignKey(related: str, **kwargs) -> sa.Column:
     return sa.Column(sa.Integer, sa.ForeignKey(f"{related}.id", ondelete=ondelete, onupdate=onupdate),
                      primary_key=primary_key)
 
-async def create(connection, table: str, *, data: dict = None) -> dict or None:
+async def create(connection, table: str, *, data: dict = None, **kwargs) -> dict or None:
     """
     Create a new row in given table.
     :param connection:  Connection to database
     :param table: table name
     :param data: key: value pairs where keys are column names and values the corresponding values
-    :return: new row as a dict
+    :return: new row as dict containing all columns or those specified by kwargs['returning'] 
     """
     data = {
         key: value for key, value in data.items()
-        if key in table.c.keys() and value is not None
+        if value is not None
         }
-    columns = ','.join(data.keys())
-    values = ','.join([str(value) for value in data.values()])
-    stmt = f"INSERT INTO {table} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
+    columns = ','.join(key for key in data.keys())
+    values = tuple(data.values())
+    ret = kwargs.get('returning', '*')
+    stmt = f"INSERT INTO {table} ({columns}) VALUES {values} RETURNING {','.join(ret)}"
+    print(f"create {table} stmt: {stmt}")
     result = await connection.fetchrow(stmt)
     if result:
         return dict(result)
@@ -156,10 +157,10 @@ async def update(connection: Connection, table: str, *, data: dict = None, **kwa
     :param connection:  Connection to database
     :param table: table name
     :param data: key: value pairs with data (must contain object id or reference key and value if kwargs['ref'] is given)
-    :return: updated row as dict containing all columns or those specified by kwargs['return'] 
+    :return: updated row as dict containing all columns or those specified by kwargs['returning'] 
     """
     ref = kwargs.get('ref', 'id')
-    ret = kwargs.get('return', '*')
+    ret = kwargs.get('returning', '*')
     updates = ','.join(f"{key}={value} " for key, value in data.items()
                        if key not in [ref, 'id', 'created'] and value is not None)
     defaults = "last_updated=CURRENT_TIMESTAMP, update_count=update_count+1"

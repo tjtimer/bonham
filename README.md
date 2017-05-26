@@ -1,6 +1,6 @@
-***Bonham***
+Bonham
 ---
-
+---
 Server part of a single page app i'm working on, based on python aiohttp.
 
 Dedicated to the greatest drummer of all times MR. JOHN BONHAM.
@@ -9,10 +9,11 @@ Dedicated to the greatest drummer of all times MR. JOHN BONHAM.
 
 Feel free to review, criticize or use it in any way you like.
 
-requires Python 3.6
+***requires Python 3.6***
+
 ---
-***table of content:***  
-    - [coding-style](#coding-style)
+#####table of content:  
+- [Coding Style](#coding-style)
 ---
 
 #### <a name="coding-style" />Coding Style

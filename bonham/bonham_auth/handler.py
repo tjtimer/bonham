@@ -6,16 +6,12 @@ from asyncpg import UniqueViolationError
 from passlib.hash import pbkdf2_sha512
 
 from bonham import db
+from bonham.errors import RequestDenied
 from bonham.serializer import serialize
 from .models import Account, RefreshToken, validate_data
 from .token import *
 
 __all__ = ['sign_up', 'login', 'logout', 'token_login', 'activate']
-
-
-class RequestDenied(BaseException):
-    def __init__(self, *args):
-        super().__init__(args)
 
 
 async def sign_up(request):
@@ -42,12 +38,21 @@ async def sign_up(request):
             await request.app['root'].on_account_created.send(account)
 
 
+async def check_password(req_pass, db_pass):
+    if not pbkdf2_sha512.verify(req_pass, db_pass):
+        raise RequestDenied('wrong password')
+    return
+
+
 async def check_retries(email, failed_logins):
-    now = arrow.now()
-    if len(failed_logins[email]) >= 3 and failed_logins[email][-1].replace(minutes=1) <= now:
-        wait_until = now.replace(minutes=5)
-        error_message = f"To many failed retries. Please wait until {wait_until}."
-        raise RequestDenied(error_message)
+    is_retry = email in failed_logins.keys()
+    if is_retry:
+        now = arrow.now()
+        if len(failed_logins[email]) >= 3 and failed_logins[email][-1].replace(minutes=1) <= now:
+            wait_until = now.replace(minutes=5)
+            error_message = f"To many failed retries. Please wait until {wait_until}."
+            raise RequestDenied(error_message)
+    return
 
 
 async def update_failed(email, failed_logins):
@@ -90,45 +95,41 @@ async def login(request: web.Request) -> web.json_response:
     :return: response object containing cookies, headers and message
     :rtype: aiohttp.web.json_response
     """
-    data = dict(email=request['data']['email'], logged_in=False)
     try:
-        is_retry = data['email'] in request.app['failed_logins'].keys()
-        if is_retry:
-            response = await check_retries(data['email'], request.app['failed_logins'])
-        account = await Account().get_by_key(request['connection'],
-                                             key='email', value=data['email'],
-                                             returning=['id', 'password'])
-        password_is_correct = pbkdf2_sha512.verify(
-                request['data']['password'], account['password']
+        await check_retries(request['data']['email'], request.app['failed_logins'])
+        account = await Account(
+                email=request['data']['email']
+                ).get_by_key(
+                request['connection'],
+                key='email', returning=['id', 'email', 'password']
                 )
-        if password_is_correct:
-            data['logged_in'] = True
-            request['account'] = await Account(
-                    id=account['id'], logged_in=True
-                    ).update(
-                    request['connection'], returning=['id', 'email']
-                    )
-            token = await create_access_token(request)
-            refresh_token = await RefreshToken().get_by_key(request['connection'], key='owner', value=request['account']['id'])
-            headers = dict(access=token, bearer=refresh_token['token'])
-            response = dict(message=f"welcome back {data['email']}!")
-            response = web.json_response(response, headers=headers)
-            max_age = 2400 * 3600  # 100 days
-            response.set_cookie('bearer', str(refresh_token['token']),
-                                max_age=max_age, secure=True, httponly=True)
-            return response
-        else:
-            response, request.app['failed_logins'] = await update_failed(request.app['failed_logins'], data['email'])
-            return web.json_response(response, status=401)
+        await check_password(request['data']['password'], account['password'])
+        await Account(
+                id=account['id'], logged_in=True
+                ).update(
+                request['connection'],
+                returning=['id']
+                )
+        access_token = await create_access_token(request)
+        refresh_token = await RefreshToken(
+                owner=account['id']
+                ).get_by_key(
+                request['connection'], key='owner'
+                )
+        response = web.json_response(
+                dict(message=f"welcome back {request['data']['email']}."),
+                headers=dict(access=access_token, bearer=refresh_token['token'])
+                )
+        max_age = 2400 * 3600  # 100 days
+        response.set_cookie('bearer', str(refresh_token['token']),
+                            max_age=max_age, secure=True, httponly=True)
+        return response
+    except KeyError as e:
+        return web.json_response(dict(error=f"Request must provide {e}."))
+    except TypeError:
+        return web.json_response(dict(error=f"account with email {request['data']['email']} does not exist"), status=401)
     except RequestDenied as e:
-        response = dict(error=e)
-        return web.json_response(response, status=401)
-    except TypeError as e:
-        response = dict(error=f"account with email {data['email']} does not exist")
-        return web.json_response(response, status=401)
-    finally:
-        if data['logged_in']:
-            await request.app['root'].on_account_logged_in.send(account['id'])
+        return web.json_response(dict(error=e), status=401)
 
 
 async def token_login(request):

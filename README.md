@@ -1,4 +1,4 @@
-Bonham
+# Bonham
 ---
 
 Server part of a single page app i'm working on, based on python aiohttp.
@@ -12,7 +12,8 @@ Feel free to review, criticize or use it in any way you like.
 ***requires Python 3.6***
 
 ---
-####table of content:  
+
+##### table of content:
 - [Coding Style](#coding-style)
 ---
 

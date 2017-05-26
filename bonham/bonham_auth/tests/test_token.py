@@ -1,7 +1,7 @@
-from hypothesis import given
 import hypothesis.strategies as st
+from hypothesis import given
 
-from bonham.bonham_authentication.token import create, verify_token
+from bonham.bonham_auth.token import verify_token
 from .helper import name_alphabet
 
 

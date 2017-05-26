@@ -1,8 +1,8 @@
 import json
 
-from hypothesis import example, given
 import hypothesis.strategies as st
 import requests
+from hypothesis import example, given
 
 alphabet = st.text(st.characters(
         max_codepoint=1000,

@@ -1,6 +1,6 @@
 from hypothesis import strategies as st
 
-from bonham.bonham_authentication.models import Account
+from bonham.bonham_auth.models import Account
 
 alphabet = st.text(st.characters(
         max_codepoint=1000,

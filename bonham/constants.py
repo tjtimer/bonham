@@ -1,26 +1,19 @@
 from enum import Enum
 
 
+__all__ = [
+    'UserAgentStatus',
+    'Privacy'
+    ]
+
+
 class UserAgentStatus(Enum):
     undefined = 1
     blocked = 2
     marked = 3
 
 
-class UserStatus(Enum):
-    admin = 1
-    editor = 2
-    regular = 3
-    blocked = 4
-
-
-UserStatus.admin.label = (u'Admin')
-UserStatus.editor.label = (u'Editor')
-UserStatus.regular.label = (u'Regular bonham_profile')
-UserStatus.blocked.label = (u'Blocked bonham_profile')
-
-
-class PrivacyStatus(Enum):
+class Privacy(Enum):
     public = 1
     registered = 2
     follower = 3
@@ -30,10 +23,10 @@ class PrivacyStatus(Enum):
     private = 7
 
 
-PrivacyStatus.public.label = (u'Public')
-PrivacyStatus.registered.label = (u'Registered')
-PrivacyStatus.follower.label = (u'Follower')
-PrivacyStatus.friends.label = (u'Friends')
-PrivacyStatus.editors.label = (u'Editors')
-PrivacyStatus.admins.label = (u'Admins')
-PrivacyStatus.private.label = (u'Private')
+Privacy.public.label = (u'Public')
+Privacy.registered.label = (u'Registered')
+Privacy.follower.label = (u'Follower')
+Privacy.friends.label = (u'Friends')
+Privacy.editors.label = (u'Editors')
+Privacy.admins.label = (u'Admins')
+Privacy.private.label = (u'Private')

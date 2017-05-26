@@ -17,13 +17,20 @@ requires Python 3.6
 ---
 #### Coding Style
 ---
-- max line length should be 120, better is 80 (pep8)
-- all function arguments should be keyword only arguments, e.g.
-```python
-def function(*, argument=None):
-        if argument is None:
-                argument = default_value
-        ...
-```
+- max line length should be 100, 80 is better (pep8).
+- functions:
+   - keep the number of positional arguments as low as possible
+   - use keyword arguments
+    ```python
+    def function(*, argument=None):
+         if argument is None:
+              argument = default_value
+    ```
+    or
+    ```python
+    def function(*, **kwargs):
+         argument = kwargs.pop('argument_key', default_value)
+         ...
+    ```
 
 

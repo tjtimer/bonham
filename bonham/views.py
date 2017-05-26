@@ -1,9 +1,14 @@
-from aiohttp_jinja2 import template
+from aiohttp_jinja2 import render_template
 
+__all__ = ['index']
+async def get_context(request):
+    return dict(
+            title='NEUME',
+            lang='de_DE'
+            )
 
-@template('index.html')
 async def index(request):
-    return {
-        'title': 'Bonham',
-        'lang': 'de_DE'
-    }
+    context = await get_context(request)
+    resp = render_template('index.html', request, context)
+    print(resp)
+    return resp

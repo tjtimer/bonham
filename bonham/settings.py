@@ -2,37 +2,42 @@ import logging
 import os
 import socket
 
-from bonham.local_settings import LOCAL_ADMIN, LOCAL_DSN
+from .local_settings import LOCAL_ADMIN, LOCAL_DB_PW, LOCAL_DB_USER, LOCAL_DSN
 
-HOST = 'localhost'
-PORTS = range(9090, 9093)
+HOST = 'tjtimer.dev'
+PORTS = [9090, 9091, 9092]
 DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if it is not
+if not DEBUG:
+    DEVELOPMENT_MODE = False
+else:
+    DEVELOPMENT_MODE = True
 
-ADMIN = LOCAL_ADMIN
+ADMINS = [LOCAL_ADMIN, ]
 
-SERVER_NAME = 'bonham'
+APPLICATION_NAME = 'bonham'
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SERVER_ROOT = os.path.join(BASE_DIR, SERVER_NAME)
-ROOT_FILE = os.path.join(SERVER_ROOT, 'root.py')
-TEMPLATE_DIR = os.path.join(BASE_DIR, 'bonham', 'templates')
-UPLOAD_DIR = os.path.join(BASE_DIR, 'public', 'media')
-ASSETS_DIR = os.path.join(BASE_DIR, 'public', 'assets')
+
+SERVER_DIR = os.path.join(BASE_DIR, APPLICATION_NAME)
+TEMPLATE_DIR = os.path.join(SERVER_DIR, 'templates')
+PUBLIC_DIR = os.path.join(BASE_DIR, 'public')
+UPLOAD_DIR = os.path.join(PUBLIC_DIR, 'media')
+ASSETS_DIR = os.path.join(PUBLIC_DIR, 'assets')
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+TMP_DIR = os.path.join(BASE_DIR, 'tmp')
+SOCKET_FILE = os.path.join(TMP_DIR, HOST)
+
 ASSETS_URL = '/assets'
 MEDIA_URL = '/media'
 
-LOG_DIR = os.path.join(BASE_DIR, 'logs')
-LOG_FILE = os.path.join(LOG_DIR, 'server.log')
-LOG_FORMAT = '%(asctime)s\t%(name)s - %(levelname)s\n' \
-             '\t-\t%(pathname)s - %(filename)s - %(funcName)s\n' \
-             '\t-\t%(message)s'
+DB_USER = LOCAL_DB_USER
+DB_PW = LOCAL_DB_PW
 
+CA_DIR = os.path.join(BASE_DIR, 'rsa')
+SELF_SIGNED_CA_DIR = os.path.join(CA_DIR, 'self_signed')
+PRIVATE_KEY_FILE = os.path.join(SELF_SIGNED_CA_DIR, 'rsa.pem')
+PUBLIC_KEY_FILE = os.path.join(SELF_SIGNED_CA_DIR, 'rsa.pub')
 
-
-RSA_DIR = os.path.join(BASE_DIR, 'rsa/self_signed')
-RSA_PEM = os.path.join(RSA_DIR, 'rsa.pem')
-RSA_PUB = os.path.join(RSA_DIR, 'rsa.pub')
-
-LOCALE_DIR = os.path.join(BASE_DIR, 'locales')
+LOCALES_DIR = os.path.join(BASE_DIR, 'locales')
 
 IMAGE_VARIANTS = {
     'original': None,  # save image as is
@@ -43,16 +48,13 @@ IMAGE_VARIANTS = {
     'xl': 800  # resize longest side to 800 and keep aspect ratio
 }
 
-EMAIL_ADDRESSES = {
-    'registration': {
-        'address': 'registration@domain.com',
-        'password': 'MyHolySecret'
-    }
-}
-EMAIL_TEMPLATES_DIR = os.path.join(BASE_DIR, 'email/templates')
-MAIL_HOST = 'mail.wservices.ch'
+EMAIL_SERVER_HOST = 'localhost'
+EMAIL_SERVER_PORT = 3030
+SMTP_HOST = 'smtp.googlemail.com'
 SMTP_PORT = 465
+IMAP_HOST = 'imap.gmail.com'
 IMAP_PORT = 993
+POP3_HOST = 'pop3.gmail.com'
 POP3_PORT = 995
 
 if DEBUG:
@@ -62,4 +64,4 @@ if DEBUG:
 
 else:
     DSN = 'postgresql://<username>:<password>@<host>:<port>/<dbname>'
-    LOG_LEVEL = logging.WARN
+    LOG_LEVEL = logging.INFO

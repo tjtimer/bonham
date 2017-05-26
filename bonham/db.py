@@ -1,3 +1,4 @@
+# bonham / db.py
 import logging
 from typing import Any, Iterator
 
@@ -5,14 +6,14 @@ import asyncpg
 import psycopg2 as psql
 import sqlalchemy as sa
 from aiohttp import web
-from aiohttp.signals import Signal
 from asyncpg.connection import Connection
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from bonham.models import BaseModel
 from bonham.settings import DEVELOPMENT_MODE, DSN
 
-__all__ = ['setup', 'shutdown', 'ForeignKey', 'create_db', 'drop_db', 'create_table', 'drop_table',
+version = '0.0.1b1'
+
+__all__ = ['setup', 'shutdown', 'ForeignKey', 'create_db', 'drop_db', 'create_tables', 'drop_tables',
            'create', 'update', 'delete', 'get', 'get_by_id', 'get_by_key']
 
 #  engine to use for table creation
@@ -83,33 +84,49 @@ async def setup(app: web.Application) -> web.Application:
     :param app: application instance
     :return: updated application instance
     """
-    app.db = await asyncpg.create_pool(dsn=DSN, loop=app.loop, command_timeout=60)
-    app.tables = {}
-    app.on_db_obj_created = Signal(app)
-    app.on_db_obj_updated = Signal(app)
-    app.on_db_obj_deleted = Signal(app)
+    app['db'] = await asyncpg.create_pool(dsn=DSN, loop=app.loop, command_timeout=60)
+    app['tables'] = {}
     return app
+
 
 async def shutdown(app):
-    await app.db.close()
-    print(f"app db is closed.")
+    """ Gracefully shutdown all open connections to te database and close the connection pool."""
+    await app['db'].close()
+    print(f"db is closed.")
     return app
 
-async def create_table(model: BaseModel) -> sa.Table:
+
+def create_tables(models: (list, tuple))-> list:
     """
-    Create a new table 
-    :param model: a representation of the table to create (model attributes will be table columns) 
-    :return: the newly created table as an instance of sqlalchemy table
+    Create a tables in the database
+    Usage: 
+        Put create_tables([<MyModel1>, <MyModel2>, ....]) at the end of your models.py.
+        This will create your tables when the models module is imported for the first time.
+    :param models: a list or tuple of Models to create tables for. model attributes will be table columns 
+    :return: a list of newly created tables (see sqlalchemy: <class Table>)
     """
-    model.__table__.create(engine, checkfirst=True)
-    return model.__table__
+    for model in models:
+        model.__table__.create(engine, checkfirst=True)
+    return [model.__table__ for model in models]
 
 
-async def drop_table(connection, table):
-    if not DEVELOPMENT_MODE:
-        return
-    connection.execute(f"DROP TABLE {table} CASCADE")
-    connection.close()
+def drop_tables(tables: (list, tuple)) -> bool:
+    """
+    Drop tables from the database.
+    :param tables: a list or tuple of table names that should get dropped
+    :return: True if succeeded False otherwise 
+    """
+    if not DEVELOPMENT_MODE:    # we don't want to drop tables in production
+        return False
+    connection = engine.connect()
+    try:
+        for table in tables:
+            connection.execute(f"DROP TABLE {table} CASCADE")
+        connection.close()
+        return True
+    except Exception as e:
+        print(f"drop tables exception: {type(e).__name__}: {e}")
+        return False
 
 
 def ForeignKey(related: str, **kwargs) -> sa.Column:
@@ -128,13 +145,15 @@ def ForeignKey(related: str, **kwargs) -> sa.Column:
     return sa.Column(sa.Integer, sa.ForeignKey(f"{related}.id", ondelete=ondelete, onupdate=onupdate),
                      primary_key=primary_key)
 
-async def create(connection, table: str, *, data: dict = None, **kwargs) -> dict or None:
+async def create(connection: Connection, table: str, *, data: dict = None, **kwargs) -> dict or None:
     """
-    Create a new row in given table.
-    :param connection:  Connection to database
-    :param table: table name
+    Create a new row in given table and return that newly created row.
+    Specify which fields/columns to return by setting keyword argument
+    'returning' to a list of column names (default is ['*']).
+    :param connection: a database connection
+    :param table: the database table name
     :param data: key: value pairs where keys are column names and values the corresponding values
-    :return: new row as dict containing all columns or those specified by kwargs['returning'] 
+    :returns: newly created row as dict
     """
     data = {
         key: value for key, value in data.items()
@@ -142,7 +161,9 @@ async def create(connection, table: str, *, data: dict = None, **kwargs) -> dict
         }
     columns = ','.join(key for key in data.keys())
     values = tuple(data.values())
-    ret = kwargs.get('returning', '*')
+    ret = kwargs.pop('returning', ['*'])
+    if len(ret) > 1 and not isinstance(ret, (list, tuple)):
+        raise TypeError(f"<returning> must be type list or tuple")
     stmt = f"INSERT INTO {table} ({columns}) VALUES {values} RETURNING {','.join(ret)}"
     print(f"create {table} stmt: {stmt}")
     result = await connection.fetchrow(stmt)
@@ -160,7 +181,9 @@ async def update(connection: Connection, table: str, *, data: dict = None, **kwa
     :return: updated row as dict containing all columns or those specified by kwargs['returning'] 
     """
     ref = kwargs.get('ref', 'id')
-    ret = kwargs.get('returning', '*')
+    ret = kwargs.get('returning',  ['*'])
+    if len(ret) > 1 and not isinstance(ret, (list, tuple)):
+        raise TypeError(f"<returning> must be type list or tuple")
     updates = ','.join(f"{key}={value} " for key, value in data.items()
                        if key not in [ref, 'id', 'created'] and value is not None)
     defaults = "last_updated=CURRENT_TIMESTAMP, update_count=update_count+1"
@@ -195,6 +218,8 @@ async def get(connection: Connection, table: str, *, where: str = None, **kwargs
     :rtype: generator / Iterator
     """
     fields = kwargs.get('fields', '*')
+    if len(fields) > 1 and not isinstance(fields, (list, tuple)):
+        raise TypeError(f"<fields>' must be type list or tuple")
     order_by = kwargs.get('order_by', 'id')
     offset = kwargs.get('offset', 0)
     limit = kwargs.get('limit', 100)
@@ -216,6 +241,8 @@ async def get_by_id(connection: Connection, table: str, *, o_id: int = None, **k
     :return: the matching row as dict containing all columns or those specified by kwargs['fields'] 
     """
     fields = kwargs.get('fields', '*')
+    if len(fields) > 1 and not isinstance(fields, (list, tuple)):
+        raise TypeError(f"<fields> must be type list or tuple")
     stmt = f"SELECT {','.join(fields)} FROM {table} WHERE id={o_id}"
     row = await connection.fetchrow(stmt)
     if row:
@@ -234,9 +261,15 @@ async def get_by_key(connection: Connection, table: str, *,
                     containing each matching row as a dict else returns a single matching row as dict
     """
     fields = kwargs.get('fields', '*')
+    if len(fields) > 1 and not isinstance(fields, (list, tuple)):
+        raise TypeError(f"<fields> must be type list or tuple")
     many = kwargs.get('many', False)
     operator = kwargs.get('operator', '=')
+    order_by = kwargs.get('order_by', 'id')
+    offset = kwargs.get('offset', 0)
+    limit = kwargs.get('limit', 100)
     stmt = f"SELECT {','.join(fields)} FROM {table} WHERE {key} {operator} '{value}'"
+    stmt += f"ORDER BY {order_by} OFFSET {offset} LIMIT {limit}"
     if many:
         rows = await connection.fetch(stmt)
         if rows:

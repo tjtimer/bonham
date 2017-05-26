@@ -1,37 +1,18 @@
-from collections import Iterator
 import datetime
 import json
+from collections import Iterator
 
 import arrow
 import curio
 
-from bonham.constants import PrivacyStatus
+from bonham.constants import Privacy
+from bonham.utils import camel_case
 
-
-async def camel_case(value):
-    v_list = value.replace('-', '_').split('_')
-    if len(v_list) == 1:
-        return value.lower()
-    cc_value = v_list[0].lower()
-    cc_value += ''.join(part.capitalize() for part in v_list[1:])
-    return cc_value
-
-
-async def un_camel_case(value):
-    n_value = ''
-    for letter in value:
-        if ord(letter) in range(65, 91):
-            letter = f"_{letter.lower()}"
-        n_value += letter
-    return n_value
-
+__all__ = ['serialize']
 
 async def to_json(key: str, value):
-    """
-    transform a plain dict (no nested objects) to a json serializable dict
-    """
     if key == 'privacy':
-        value = PrivacyStatus(value).label
+        value = Privacy(value).label
     if isinstance(value, (datetime.datetime, arrow.arrow.Arrow)):
         return arrow.get(value).for_json()
     if isinstance(value, (type,)):
@@ -41,13 +22,15 @@ async def to_json(key: str, value):
 
 async def serialize(name: str, obj: object) -> json:
     """
-    creates a new json serializable dict object from data object
-    where keys are "camelCase" for ECMAScript conventions
-    
-    
+    Creates a json object from obj where keys are "camelCased" for ECMAScript conventions
+    and all values are lists.
+    Every serialized object contains a list of all keys in this json object.
+    references to nested data objects are strings starting with an @-Symbol, followed by the key and the index.
     
     :return: json serializable dictionary
     """
+    print("serializer")
+    print(name, obj)
     new_obj = dict()
     keys = set()
     q = curio.Queue()

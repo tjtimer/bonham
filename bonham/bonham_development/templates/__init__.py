@@ -1,3 +1,3 @@
 """
-    Author: Tim Jedro (a.k.a. tjtimer)
+    Author: Tim "tjtimer" Jedro
 """

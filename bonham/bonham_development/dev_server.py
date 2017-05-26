@@ -4,10 +4,10 @@ Author: Tim Jedro
 Version: 0.0.1a1 curio based
 
 """
-from argparse import ArgumentParser
 import datetime
 import logging
 import os
+from argparse import ArgumentParser
 from pathlib import Path
 
 import arrow
@@ -18,7 +18,7 @@ from bonham.bonham_development.settings import FUNCTION_CALL, JS_DIR, ROOT_DIR
 
 log = logging.getLogger(__name__)
 start_tests = curio.Event()
-
+stop_tests = curio.Event()
 
 async def has_changed(file):
     return (arrow.now() - arrow.get(os.stat(file).st_mtime)) <= datetime.timedelta(seconds=1)
@@ -92,22 +92,23 @@ async def manager(cmd_args):
     print(cmd_args)
     print(f"starting task manager")
     while True:
-        try:
-            async with curio.TaskGroup() as tg:
+        async with curio.TaskGroup() as tg:
+            try:
                 if cmd_args.with_tests:
+                    print(f"with tests: {cmd_args.with_tests}")
                     await tg.spawn(run_tests)
                 await tg.spawn(run_app)
                 fw = await tg.spawn(file_watchers, cmd_args.watch_js)
                 await fw.join()
-                await tg.cancel_remaining()
                 print(f"restarting")
-        except curio.CancelledError:
-            await tg.cancel_remaining()
-            print(f"task manager cancelled")
-            return
+                await tg.cancel_remaining()
+            except curio.CancelledError:
+                await tg.cancel_remaining()
+                print(f"task manager cancelled")
+                return
 
 
-def main():
+def run():
     logging.basicConfig(level=logging.INFO)
     parser = ArgumentParser('Run a Bonham Development Server.')
     parser.add_argument('--debug', '-d', action='store_true',
@@ -119,10 +120,11 @@ def main():
     parser.add_argument('--port', '-p', type=int, default=9090,
                         help='port number for this server instance, type integer default 9090')
     args = parser.parse_args()
+    print(vars(args))
     try:
         curio.run(manager, args, with_monitor=True)
     except Exception as e:
         print(type(e).__name__, e)
 
 if __name__ == '__main__':
-    main()
+    run()

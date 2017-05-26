@@ -1,23 +1,38 @@
+import random
 from collections import Iterator
 from datetime import timedelta
-import random
 
 import arrow
 import asyncpg
-from hypothesis import given
 import hypothesis.strategies as st
+from aiohttp import web
+from aiohttp.signals import Signal
+from hypothesis import given
 from sqlalchemy import Table
 
 from bonham import db
-from bonham.db import BaseModel, Connect
+from bonham.models import BaseModel, Connect
 from bonham.settings import DSN
+from bonham.utils import prepared_uvloop
 
 
-def test_basemodel(testmodel):
-    assert hasattr(testmodel, 'id')
-    assert hasattr(testmodel, 'created')
-    assert hasattr(testmodel, 'last_updated')
-    assert hasattr(testmodel, 'privacy')
+def test_create_db():
+    db = db.create_db('test_db', 'junge', 'baum')
+    assert db
+
+
+def test_setup_db():
+    loop = prepared_uvloop()
+    app = web.Application()
+    loop.run_until_complete(db.setup(app))
+    assert hasattr(app, 'db')
+    assert isinstance(app.db, asyncpg.pool.Pool)
+    assert hasattr(app, 'on_db_obj_created')
+    assert isinstance(app.on_db_obj_created, Signal)
+    assert hasattr(app, 'on_db_obj_updated')
+    assert isinstance(app.on_db_obj_updated, Signal)
+    assert hasattr(app, 'on_db_obj_deleted')
+    assert isinstance(app.on_db_obj_deleted, Signal)
 
 
 def test_create_tables(testmodel):
@@ -61,7 +76,7 @@ def test_get_by_id(testmodel, id, my_loop):
     async def _test_get_by_id():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                model = await testmodel().get_by_id(connection, id=id)
+                model = await testmodel().get_by_id(connection, o_id=id)
                 if model:
                     assert isinstance(model, (dict,))
                     assert arrow.get(model['created']) <= arrow.utcnow()
@@ -124,7 +139,7 @@ def test_update(testmodel, id, privacy, my_loop):
                 model = await testmodel().update(connection, data=data)
                 if exists:
                     assert (arrow.utcnow() - arrow.get(model['last_updated']).to('utc')) <= timedelta(
-                        seconds=5)
+                            seconds=5)
                     assert model['privacy'] == privacy
                 else:
                     assert model is None

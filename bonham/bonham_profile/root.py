@@ -1,19 +1,10 @@
-from aiohttp import web
+# bonham_profile / root.py
 
-from bonham.bonham_profile.handler import delete_user, get_friends, get_user, get_users, request_friendship, update_user
-
-
-async def setup_routes(router):
-    router.add_get(r'/', get_users, name='get-users')
-    router.add_get(r'/{id}/', get_user, name='get-user')
-    router.add_put(r'/{id}/', update_user, name='update-user')
-    router.add_delete(r'/{id}/', delete_user, name='delete-user')
-
-    router.add_get(r'/{user_id}/friends/', get_friends, name='get-friends')
-    router.add_post(r'/{user_id}/friends/{id}/', request_friendship, name='request-friendship')
+__all__ = []
 
 
 async def setup(app):
-    app = web.Application(loop=app.loop)
-    await setup_routes(app.router)
     return app
+
+async def shutdown(app):
+    return

@@ -12,7 +12,7 @@ Feel free to review, criticize or use it in any way you like.
 ***requires Python 3.6***
 
 ---
-#####table of content:  
+####table of content:  
 - [Coding Style](#coding-style)
 ---
 

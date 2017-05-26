@@ -1,55 +1,19 @@
+# bonham_profile / models.py
 import sqlalchemy as sa
-from sqlalchemy_utils import ArrowType, ChoiceType
+from sqlalchemy_utils import ArrowType
 
-from bonham.db import Base, BaseModel, ForeignKey
-from .constants import Connection, ConnectionType
+from bonham.db import ForeignKey
+from bonham.models import Base, BaseModel
 
-__all__ = ['Group', 'User', 'GGConnection', 'GUConnection', 'UUConnection', 'GroupAdmin', 'GroupEditor']
+__all__ = []
 
 
-class Group(Base, BaseModel):
+class Profile(Base, BaseModel):
     owner = ForeignKey('account')
-    name = sa.Column(sa.String(60), unique=True)
-    avatar = sa.Column(sa.String)
-    slogan = sa.Column(sa.String(120))
+    name = sa.Column(sa.String(64), primary_key=True)
+    avatar = sa.Column(sa.String, server_default='/defaults/images/avatar.png')
+    birthday = sa.Column(ArrowType, nullable=True)
 
 
-class User(Base, BaseModel):
-    owner = ForeignKey('account')
-    name = sa.Column(sa.String(60), unique=True)
-    avatar = sa.Column(sa.String)
-    slogan = sa.Column(sa.String(120))
-    birthday = sa.Column(ArrowType)
 
 
-class GGConnection(Base, BaseModel):
-    group1_id = ForeignKey('group')
-    group2_id = ForeignKey('group')
-    connection = sa.Column(ChoiceType(Connection, impl=sa.Integer()))
-    connection_type = sa.Column(ChoiceType(ConnectionType, impl=sa.Integer()))
-
-
-class GUConnection(Base, BaseModel):
-    group_id = ForeignKey('group')
-    user_id = ForeignKey('user')
-    connection = sa.Column(ChoiceType(Connection, impl=sa.Integer()))
-    connection_type = sa.Column(ChoiceType(ConnectionType, impl=sa.Integer()))
-
-
-class UUConnection(Base, BaseModel):
-    user1_id = ForeignKey('user')
-    user2_id = ForeignKey('user')
-    connection = sa.Column(ChoiceType(Connection, impl=sa.Integer()))
-    connection_type = sa.Column(ChoiceType(ConnectionType, impl=sa.Integer()))
-
-
-class GroupAdmin(Base, BaseModel):
-    __tablename__ = 'group_admin'
-    account_id = ForeignKey('account')
-    object_id = sa.Column(sa.Integer, nullable=False)
-
-
-class GroupEditor(Base, BaseModel):
-    __tablename__ = 'group_editor'
-    account_id = ForeignKey('account')
-    object_id = sa.Column(sa.Integer, nullable=False)

@@ -2,6 +2,7 @@
 import logging
 from typing import Any, Iterator
 
+import arrow
 import asyncpg
 import psycopg2 as psql
 import sqlalchemy as sa
@@ -160,11 +161,12 @@ async def create(connection: Connection, table: str, *, data: dict = None, **kwa
         if value is not None
         }
     columns = ','.join(key for key in data.keys())
-    values = tuple(data.values())
+    data_values = (val for val in data.values())
+    values = data_values, f"TIMESTAMP {arrow.now()}"
     ret = kwargs.pop('returning', ['*'])
     if len(ret) > 1 and not isinstance(ret, (list, tuple)):
         raise TypeError(f"<returning> must be type list or tuple")
-    stmt = f"INSERT INTO {table} ({columns}) VALUES {values} RETURNING {','.join(ret)}"
+    stmt = f"INSERT INTO {table} ({columns}, created) VALUES {values} RETURNING {','.join(ret)}"
     print(f"create {table} stmt: {stmt}")
     result = await connection.fetchrow(stmt)
     if result:

@@ -5,8 +5,9 @@
 
     Root provides the core capabilities for every Service
         -> read from and write to database
-        -> sending emails
-        -> identify the user
+        -> sending emails (bonham_mail)
+        -> identify the user (bonham_auth)
+
 """
 import asyncio
 import logging
@@ -33,10 +34,7 @@ from bonham.utils import prepared_uvloop
 asyncio.set_event_loop_policy(EventLoopPolicy())
 
 parser = ArgumentParser('Run a Bonham app instance on specified port.')
-parser.add_argument('port', type=int,
-                    help='port number for this server instance, type integer e.g 8000')
-parser.add_argument('--production', '-prod', action='store_true',
-                    help='port number for this server instance, type integer e.g 8000')
+parser.add_argument('port', type=int, help='port number for this server instance, type integer e.g 8000')
 
 core = [db, router]
 subapps = [auth]

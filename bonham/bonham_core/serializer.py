@@ -10,6 +10,7 @@ from bonham.utils import camel_case
 
 __all__ = ['serialize']
 
+
 async def to_json(key: str, value):
     if key == 'privacy':
         value = Privacy(value).label
@@ -26,7 +27,7 @@ async def serialize(name: str, obj: object) -> json:
     and all values are lists.
     Every serialized object contains a list of all keys in this json object.
     references to nested data objects are strings starting with an @-Symbol, followed by the key and the index.
-    
+
     :return: json serializable dictionary
     """
     print("serializer")

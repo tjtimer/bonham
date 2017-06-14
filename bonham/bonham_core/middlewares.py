@@ -3,7 +3,7 @@ import json
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPFound, HTTPNotFound
 
-from bonham.serializer import serialize
+from .serializer import serialize
 
 __all__ = [
     'data_middleware',
@@ -17,12 +17,10 @@ async def error_middleware(app, handler):
 
     async def er_mw_handler(request):
         try:
-            print()
             response = await handler(request)
-            print(f"returning response from error_middle_ware")
             return response
         except HTTPNotFound:
-            return HTTPFound('/', headers={'REDIRECT': request.raw_path})
+            return HTTPFound('/', headers={'REDIRECT-FROM': request.raw_path})
         except BaseException as e:
             app.logger.debug(f"request error:\n\t{type(e).__name__}\n\t{e}")
             return web.json_response({

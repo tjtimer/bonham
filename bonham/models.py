@@ -31,8 +31,7 @@ class Connect(object):
 
     id = sa.Column(sa.Integer, index=True, primary_key=True, autoincrement=True, unique=True)
 
-    async def get_or_create(self, connection: Connection, *,
-                            data: dict = None) -> dict:
+    async def get_or_create(self, connection: Connection, *, data: dict = None) -> dict:
         table = self.__table__
         where = ','.join([f"{key}={value}" for key, value in data.items()
                           if key in table.c.keys() and value is not None])
@@ -57,12 +56,10 @@ class BaseModel(object):
 
             creating:
                 model = MyModel(**data)
-                new = 
-                entry = await MyModel().create(connection, data=dict(data))
+                entry = await model.create(connection, data=dict(data))
 
             updating an existing entry:
                 entry = await MyModel().update(connection, ref=<str: column_name>, data=dict(data))
-
                 where ref is optional and defaults to 'id'
 
         Models inheriting from BaseModel will have

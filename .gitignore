@@ -12,3 +12,5 @@ bonham/bonham_development/tmp/
 public/
 rsa/
 /bonham_ui/node_modules/
+/bonham/bonham_mail/
+/bonham/bonham_logging/

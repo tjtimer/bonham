@@ -3,16 +3,18 @@ from typing import Any
 import sqlalchemy as sa
 import sqlamp
 from asyncpg.connection import Connection
+from bonham.bonham_core import db
+from bonham.bonham_core.constants import Privacy
+from bonham.bonham_core.utils import snake_case
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 
-from bonham import db
-from bonham.constants import Privacy
-from bonham.utils import snake_case
 
 __all__ = ['Base', 'BaseModel', 'Connect']
 
 Base = declarative_base(metaclass=sqlamp.DeclarativeMeta)
+
+print(snake_case)
 
 
 class Connect(object):
@@ -40,7 +42,7 @@ class Connect(object):
         if not row:
             columns = ','.join(data.keys())
             values = ','.join([str(value) for value in data.values()])
-            stmt = f"INSERT INTO tag ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
+            stmt = f"INSERT INTO {self.__tablename__} ({columns}, created) VALUES ({values}, DEFAULT) RETURNING *"
             row = await connection.fetchrow(stmt)
         return dict(row)
 
@@ -113,8 +115,9 @@ class BaseModel(object):
         data = kwargs.pop('data', {key: value for key, value in vars(self).items()
                                    if key in self.__table__.c.keys() and value is not None})
 
-        result = await db.create(connection, self.__table__, data=data, **kwargs)
-        return result
+        stmt = await db.create(self.__table__, data=data, **kwargs)
+        result = await connection.fetchrow(stmt)
+        return dict(result)
 
     async def update(self, connection, **kwargs):
         print(f"BaseModel update:\n\tkwargs: {kwargs}")

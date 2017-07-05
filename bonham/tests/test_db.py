@@ -16,23 +16,12 @@ from bonham.settings import DSN
 from bonham.utils import prepared_uvloop
 
 
-def test_create_db():
-    db = db.create_db('test_db', 'junge', 'baum')
-    assert db
-
-
 def test_setup_db():
     loop = prepared_uvloop()
     app = web.Application()
     loop.run_until_complete(db.setup(app))
-    assert hasattr(app, 'db')
-    assert isinstance(app.db, asyncpg.pool.Pool)
-    assert hasattr(app, 'on_db_obj_created')
-    assert isinstance(app.on_db_obj_created, Signal)
-    assert hasattr(app, 'on_db_obj_updated')
-    assert isinstance(app.on_db_obj_updated, Signal)
-    assert hasattr(app, 'on_db_obj_deleted')
-    assert isinstance(app.on_db_obj_deleted, Signal)
+    assert 'db' in app.keys()
+    assert isinstance(app['db'], asyncpg.pool.Pool)
 
 
 def test_create_tables(testmodel):

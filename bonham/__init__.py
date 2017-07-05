@@ -1,19 +1,5 @@
-from bonham import (
-    constants, db, errors, middlewares, models, root, router, serializer, settings, utils, validators,
-    views
-    )
+from bonham.root import *
 
 __all__ = [
-    'constants',
-    'db',
-    'errors',
-    'middlewares',
-    'models',
-    'root',
-    'router',
-    'serializer',
-    'settings'
-    'utils',
-    'validators',
-    'views',
+    *root.__all__,
     ]

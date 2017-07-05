@@ -5,8 +5,8 @@ from collections import Iterator
 import arrow
 import curio
 
-from bonham.constants import Privacy
-from bonham.utils import camel_case
+from .constants import Privacy
+from .utils import camel_case
 
 __all__ = ['serialize']
 

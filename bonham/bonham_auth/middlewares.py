@@ -2,21 +2,18 @@ import jwt
 from aiohttp import web
 
 from bonham.bonham_auth.models import RefreshToken
-from bonham.views import index
+from bonham.bonham_core import views
 from .token import decode_token, verify_token
 
 __all__ = ['access_middleware']
 
 
-def my_decorator(func):
-    async def wrapped(*args, **kwargs):
-        print(f"decorated func: {func.__name__}")
-        print(f"args: {args}")
-        print(f"kwargs: {kwargs}")
-        result = await func(*args, **kwargs)
-        print(f"decorated func result: {result}")
-        return result
-    return wrapped
+async def request_signal_middleware(service, handler):
+    async def middleware_handler(request):
+        await service.on_auth_request_started.send(request, handler)
+        return await handler(request)
+        await service.on_auth_response_sent.send(request, handler)
+    return middleware_handler
 
 
 async def bearer_middleware(_, handler):
@@ -29,7 +26,7 @@ async def bearer_middleware(_, handler):
             ref_token = await RefreshToken().get_by_key(request['connection'], key='token', value=cookie_bearer)
             ref_data = await decode_token(ref_token['token'].encode('utf-8'))
             print(ref_data)  # TODO: refresh token flow!!!
-            response = await index(request)
+            response = await views.index(request)
             if not response.prepared:
                 response.headers.update({
                     'access': 'access',

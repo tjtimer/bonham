@@ -13,25 +13,41 @@ Feel free to review, criticize or use it in any way you like.
 ---
 
 ##### table of content:
+- [Usage](#usage)
 - [Coding Style](#coding-style)
 ---
+#### <a name="usage" />Usage
+```python
+# <MyProject>/main.py
 
+from bonham import *
+
+
+def run():
+    config = load_yaml_conf('/path/to/my/conf.yaml')
+
+
+
+
+```
 #### <a name="coding-style" />Coding Style
-- max line length should be 100, 80 is better (pep8).
+- max line length should be 100, better 80 (pep8).
 - functions:
    - keep the number of positional arguments as low as possible
    - use keyword arguments
-    ```python
-    def function(*, argument=None):
-         if argument is None:
-              argument = default_value
-         ...
-    ```
-    or
-    ```python
-    def function(*, **kwargs):
-         argument = kwargs.pop('argument_key', default_value)
-         ...
-    ```
+   - use type annotation
+   - use docstrings
+ ```python
+def my_function(*, argument: type=None) -> type:
+     if argument is None:
+          argument = 'default_value'
+          ...
+ ```
+or
+```python
+def my_function(**kwargs)-> type:
+     argument = kwargs.pop('argument_key', 'default_value')
+     ...
+```
 
 

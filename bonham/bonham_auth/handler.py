@@ -38,36 +38,33 @@ async def sign_up(request):
             await request.app['root'].on_account_created.send(account)
 
 
-async def check_password(req_pass, db_pass):
+async def check_password(request, db_pass):
+    req_pass = request['data']['password']
     if not pbkdf2_sha512.verify(req_pass, db_pass):
+        await update_failed(request)
         raise RequestDenied('wrong password')
     return
 
 
-async def check_retries(email, failed_logins):
-    is_retry = email in failed_logins.keys()
-    if is_retry:
+async def check_retries(email: str, failed_logins: dict) -> None:
+    if email in failed_logins.keys():
         now = arrow.now()
-        if len(failed_logins[email]) >= 3 and failed_logins[email][-1].replace(minutes=1) <= now:
-            wait_until = now.replace(minutes=5)
-            error_message = f"To many failed retries. Please wait until {wait_until}."
+        if len(failed_logins[email]) >= 3 and failed_logins[email][-1].replace(seconds=90) <= now:
+            wait_until = now.replace(minutes=5).format('HH:mm:ss')
+            error_message = f"To many failed retries. Please wait 5 minutes, until {wait_until}."
             raise RequestDenied(error_message)
     return
 
 
-async def update_failed(email, failed_logins):
+async def update_failed(request: web.Request) -> None:
+    email = request['data']['email']
+    failed_logins = request['failed_logins']
     now = arrow.now()
-    response = dict(error="wrong password!")
     if email in failed_logins.keys():
-        if len(failed_logins[email]) <= 2:
-            failed_logins[email].append(now)
-        else:
-            if now <= failed_logins[email][0].replace(seconds=90):
-                response = dict(error="Wrong Password for the third time. Please wait five Minutes to retry.")
-                failed_logins[email].append(now)
+        failed_logins[email].append(now)
     else:
         failed_logins[email] = [now]
-    return response, failed_logins
+    return
 
 async def login(request: web.Request) -> web.json_response:
     """
@@ -75,7 +72,7 @@ async def login(request: web.Request) -> web.json_response:
         - read email from request['data']
         - check retries
             -> refuse request if user failed to log in more than:
-                - 3 times in 60 seconds
+                - 3 times in 90 seconds
                 - more than 20 times in 60 minutes
         - get account data from db
         - check password
@@ -103,7 +100,7 @@ async def login(request: web.Request) -> web.json_response:
                 request['connection'],
                 key='email', returning=['id', 'email', 'password']
                 )
-        await check_password(request['data']['password'], account['password'])
+        await check_password(request, account['password'])
         await Account(
                 id=account['id'], logged_in=True
                 ).update(

@@ -37,10 +37,8 @@ class Service():
     def __init__(self):
         loop = prepared_uvloop(debug=DEBUG)
         self.wait_for = loop.run_until_complete
-        self.create_server = loop.create_server
         self.router = Router()
         self.loop = loop
-        self.processes[self.process.pid] = self.process
         self.index_template = self.wait_for(Template(TEMPLATES_DIR).load('index.html'))
         self.ready = Event()
         self.stopped = Event()
@@ -62,10 +60,10 @@ class Service():
     def run(self):
         self.instance_count += 1
         self.server = self.wait_for(
-                self.create_server(
+                self.loop.create_unix_server(
                         self.server_protocol,
-                        '127.0.1.2', 9091
-                        # sock=prepared_socket(self.instance_count)
+                        # '127.0.1.2', 9091
+                        sock=get_socket(self.instance_count)
                         )
                 )
         print("after create server called: ", self.index_template)

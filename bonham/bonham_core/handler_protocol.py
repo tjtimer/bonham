@@ -14,38 +14,47 @@ from _ssl import PROTOCOL_TLSv1_2
 import asyncio
 
 import arrow
+import httptools
+
 from bonham.bonham_core.router import Router
-from bonham.settings import SOCKET_FILE
+from bonham.bonham_core.templates import Template
+from bonham.bonham_protocols.request_parser_protocol import RequestParserProtocol
+from bonham.settings import SOCKET_FILE, TEMPLATES_DIR
 
 __all__ = [
     'ssl_context',
-    'get_sock_file',
+    'get_socket_file',
     'prepared_socket',
     'ServiceProtocol'
     ]
 
-ssl_context = ssl.SSLContext(protocol=PROTOCOL_TLSv1_2)
-ssl_context.load_default_certs(purpose=ssl.Purpose.SERVER_AUTH)
-ciphers = [cipher['description'] for cipher in ssl_context.get_ciphers() if 'TLSv1.2' in cipher['description']]
-ssl_context.set_ciphers(ciphers[0])
+
+def get_ssl_context(*,
+                    protocol=PROTOCOL_TLSv1_2,
+                    purpose=ssl.Purpose.SERVER_AUTH, **kwargs):
+    ssl_context = ssl.SSLContext(protocol=protocol)
+    ssl_context.load_default_certs(purpose=purpose)
+    default_ciphers = [
+        cipher['description'] for cipher in ssl_context.get_ciphers() if 'TLSv1.2' in cipher['description']
+        ][0]
+    ssl_context.set_ciphers(('ciphers', default_ciphers))
+    return ssl_context
 
 
-def get_sock_file(_id):
+def get_socket_file(_id):
     sock_file = f"{SOCKET_FILE}_{_id}.sock"
     if os.path.exists(sock_file):
         os.remove(sock_file)
-    return sock_file
+    return sock_file  # will be created on my_socket.bind() method.
 
 
-def prepared_socket(_id) -> ssl.SSLSocket:
+def create_ssl_socket(_id, **kwargs) -> ssl.SSLSocket:
+    sock_file = get_socket_file(_id)
+    ssl_context = get_ssl_context()
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     ssl_sock = ssl_context.wrap_socket(s)
-    sock_file = f"{SOCKET_FILE}_{_id}.sock"
-    if os.path.exists(sock_file):
-        os.remove(sock_file)
     ssl_sock.bind(sock_file)
-    os.chmod(sock_file, 666)
-    ssl_sock.listen(100)
+    ssl_sock.listen(kwargs.pop('listen', 100))
     return ssl_sock
 
 
@@ -58,8 +67,6 @@ def create_response_headers(received_headers: bytes)->bytes:
     headers = dict(
             status_line=b'HTTP/1.1 200 OK',
             charset=b'charset: utf-8',
-            location=b'Location: /',
-            transfer_encoding=b'Transfer-Encoding: gzip, deflate, chunked, compress',
             x_xss_protection=b'X-XSS-Protection: True',
             strict_transport_securitiy=b'Strict-Transport-Security: max-age=31536000\r\n'
                              b'Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n'
@@ -73,30 +80,31 @@ def create_response_headers(received_headers: bytes)->bytes:
     return byte_headers
 
 
-class ServiceProtocol(asyncio.Protocol):
+class ServiceProtocol(asyncio.DatagramProtocol):
     def __init__(self):
         print('protocol initialized')
+        self.loop = asyncio.get_event_loop()
         self.transport = None
-        self.data_sent = []
+        self.request_parser = httptools.HttpRequestParser(RequestParserProtocol)
+        # self.response_parser = httptools.HttpResponseParser()
+        self.http_version = 'HTTP/1.1'
+        self.method = b'GET'
+        self.keep_alive = False
+        self.response = b'pong'
 
     def connection_made(self, transport):
         print(f"connection made")
         self.transport = transport
-        self.transport.get_extra_info('peername')
+        self.http_version = self.request_parser.get_http_version()
+        self.method = self.request_parser.get_method()
+        self.keep_alive = self.request_parser.should_keep_alive()
 
-    def data_received(self, data):
-        print('data received', data)
-        chunks = data.decode().split('\n\n')
-        received = ''.join(chunks)
-        response_headers = create_response_headers(received)
-        response_headers += b'\r\nContent-Length: ' + bytes(str(len(b'\r\n\r\nYEAH!;')), encoding='utf-8')
-        response_content = b''.join([response_headers, b'\r\n\r\nYEAH!' ])
-        self.transport.write(response_content)
-        return self.data_sent.append(response_content)
+    def data_received(self, data, addr):
+        print('data received', data, addr)
+        self.request_parser.feed_data(data)
 
     def eof_received(self):
         print('eof received ')
-        print(vars(self))
 
     def error_received(self, exc):
         print('Error received:', exc)
@@ -104,6 +112,12 @@ class ServiceProtocol(asyncio.Protocol):
     def connection_lost(self, *args, **kwargs):
         print('connection lost: ', vars(self))
         self.shutdown()
+
+    def pause_writing(self):
+        print("pause writing")
+
+    def resume_writing(self):
+        print('resume writing')
 
     def shutdown(self):
         self.transport.close()

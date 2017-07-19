@@ -1,15 +1,13 @@
 from . import (
-    channels, constants, db, exceptions, handler_protocol,
-    middlewares, models, router, serializer,
-    utils, validators, views
+    channels, constants, db, exceptions, middlewares, models, router, serializer, sock, utils, validators,
+    views
     )
 
 __all__ = [
-    'channels',
     'constants',
     'db',
     'exceptions',
-    'handler_protocol',
+    'sock',
     'middlewares',
     'models',
     'router',

@@ -1,9 +1,8 @@
 import sqlalchemy as sa
-from asyncpg.connection import Connection
-from bonham.bonham_core import *
-from bonham.bonham_core.models import Base, BaseModel
-from sqlalchemy import UniqueConstraint, ForeignKey
 from sqlalchemy_utils import ArrowType, LocaleType, PasswordType
+
+from bonham.bonham_core.db import ForeignKey, create_tables
+from bonham.bonham_core.models import Base, BaseModel
 
 __all__ = ['Account', 'Role', 'Permission', 'RefreshToken']
 
@@ -23,12 +22,6 @@ class Account(Base, BaseModel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-    async def create(self, connection: Connection, **kwargs):
-        if self.email is None or self.password is None:
-            raise TypeError(f"email and password must be given")
-        account = await db.create(connection, self.__table__, data=dict(email=self.email, password=self.password), **kwargs)
-        return account
 
 
 class Role(Base, BaseModel):
@@ -53,3 +46,5 @@ class RefreshToken(Base, BaseModel):
     owner = ForeignKey('account')
     token = sa.Column(sa.String, primary_key=True)
 
+
+create_tables(models=(Account, RefreshToken, Permission))

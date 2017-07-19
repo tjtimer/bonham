@@ -3,12 +3,12 @@ from typing import Any
 import sqlalchemy as sa
 import sqlamp
 from asyncpg.connection import Connection
-from bonham.bonham_core import db
-from bonham.bonham_core.constants import Privacy
-from bonham.bonham_core.utils import snake_case
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 
+from bonham.bonham_core import db
+from bonham.bonham_core.constants import Privacy
+from bonham.bonham_core.utils import snake_case
 
 __all__ = ['Base', 'BaseModel', 'Connect']
 
@@ -115,8 +115,7 @@ class BaseModel(object):
         data = kwargs.pop('data', {key: value for key, value in vars(self).items()
                                    if key in self.__table__.c.keys() and value is not None})
 
-        stmt = await db.create(self.__table__, data=data, **kwargs)
-        result = await connection.fetchrow(stmt)
+        result = await db.create(connection, self.__table__, data=data, **kwargs)
         return dict(result)
 
     async def update(self, connection, **kwargs):

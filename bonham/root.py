@@ -10,81 +10,116 @@
 
 """
 import logging.config
-from asyncio import Event
-from multiprocessing import current_process
+from asyncio import Event, Task, gather
 from pathlib import Path
 
-from bonham.bonham_core.handler_protocol import ServiceProtocol, prepared_socket
-from bonham.bonham_core.router import Router
-from bonham.bonham_core.templates import Template
+import aiohttp_jinja2
+import jinja2
+from aiohttp import web
+from aiohttp_swagger import setup_swagger
+
+from bonham.bonham_auth import root as auth
+from bonham.bonham_core import db, router
+from bonham.bonham_core.middlewares import error_middleware
+from bonham.bonham_core.sock import create_ssl_socket
 from bonham.bonham_core.utils import load_yaml_conf, prepared_uvloop
-from bonham.settings import DEBUG, TEMPLATES_DIR
+from bonham.settings import APPLICATION_NAME, CONF_DIR, DEBUG, TEMPLATES_DIR
 
 __all__ = [
     'Service'
     ]
-config = load_yaml_conf(Path('logging.conf.yaml'))
-logging.config.dictConfig(config)
-
+logger_config = load_yaml_conf(Path(CONF_DIR).joinpath('logging.conf.yaml'))
+logging.config.dictConfig(logger_config)
 logger = logging.getLogger(__file__)
 
+core = [db, router]
+subapps = [auth]
+middlewares = [error_middleware]
 
-class Service():
-    instance_count = 0
-    processes = {}
-    process = current_process()
+
+class Service(web.Application):
+    _instance_count = 0
 
     def __init__(self):
-        loop = prepared_uvloop(debug=DEBUG)
-        self.wait_for = loop.run_until_complete
-        self.router = Router()
-        self.loop = loop
-        self.index_template = self.wait_for(Template(TEMPLATES_DIR).load('index.html'))
-        self.ready = Event()
-        self.stopped = Event()
-        self.server_protocol = ServiceProtocol
-        self.server = None
-        #  index.html is the only html document this service and this entire SPA/PWA ever renders
-        print('end of Service.__init__(): ', vars(self))
-        # setup_swagger(self)
+        super().__init__(middlewares=middlewares)
+        self._loop = prepared_uvloop(debug=DEBUG)
+        self._ready = Event()
+        self._stopped = Event()
+        self._sock = create_ssl_socket(self._instance_count)
+        self._handler = None
+        self._server = None
+
+        self.logger = logger
+        self._loop.run_until_complete(self.setup())
+
+        # init template render engine
+        aiohttp_jinja2.setup(self, loader=jinja2.FileSystemLoader(TEMPLATES_DIR))
+        setup_swagger(self)
+        print(vars(self))
+
+    @property
+    def ready(self):
+        return self._ready.is_set()
+
+    @property
+    def stopped(self):
+        return self._stopped.is_set()
+
+    async def setup_core(self):
+        await gather(*(component.setup(self) for component in core))
+
+    async def setup_subapps(self):
+        await gather(*(subapp.setup(self) for subapp in subapps))
+
+    @staticmethod
+    async def cancel_tasks():
+        for task in Task.all_tasks():
+            task.cancel()
 
     async def shutdown(self):
-        print("shutdown Instance: ", self.server)
-        logger.info(f"\n\n{'*'*10} Shutting down Bonham App Server instance {'*'*10}\n\n")
-        print(self.server)
-        self.server.close()
-        await self.server.wait_closed()
-        logger.info(f"\n\n{'*'*10} Successfully shut down Bonham App Server instance {'*'*10}\n\n")
-        print(self.server)
+        self.logger.info(
+                f"\n\n{'*'*10} Shutting down {APPLICATION_NAME} instance {self._instance_count} {'*'*10}\n\n"
+                )
+        for subapp in subapps:
+            await subapp.shutdown(self)
+        for component in core:
+            await component.shutdown(self)
+        self._server.close()
+        await self._server.wait_closed()
+        await self._handler.shutdown(60)
+        await self.cleanup()
+        self.logger.info(
+                f"\n\n{'*'*10} Successfully shut down {APPLICATION_NAME} instance {self._instance_count} {'*'*10}\n\n"
+                )
+
+    async def setup(self):
+        await self.setup_core()
+        await self.setup_subapps()
 
     def run(self):
-        self.instance_count += 1
-        self.server = self.wait_for(
-                self.loop.create_unix_server(
-                        self.server_protocol,
-                        # '127.0.1.2', 9091
-                        sock=get_socket(self.instance_count)
-                        )
-                )
-        print("after create server called: ", self.index_template)
-        self.ready.set()
-        print('serving on :', self.server.sockets[0].getsockname())
+        self._handler = self.make_handler(
+                secure_proxy_ssl_header=('X-FORWARDED-PROTO', 'https'),
+                slow_request_timeout=20)
+        self._server = self._loop.run_until_complete(self._loop.create_server(self._handler, sock=self._sock))
+        self._instance_count += 1
+        self._ready.set()
+        self.logger.info(
+            f"\n\n{'*'*10} {APPLICATION_NAME} serving on : {self._server.sockets[0].getsockname()} {'*'*10}\n\n")
         try:
-            self.loop.run_forever()
+            self._loop.run_forever()
         except KeyboardInterrupt:
             print("\n\nKeyboardInterrupt at bonham root\n\n")
             pass
         except Exception as e:
-            print(f"\n\n#########\nException at bonham root\n\n{type(e).__name__}")
+            print(f"\n\n#########\nException at bonham root\n\n{type(e).__name__}: {e}")
             pass
         finally:
-            self.wait_for(self.shutdown())
-            self.wait_for(self.loop.shutdown_asyncgens())
-            self.stopped.set()
-        print('stopped: ', self.stopped)
-        self.loop.stop()
-        print(f"App instance {self} successfully shut down")
+            self._loop.run_until_complete(self.shutdown())
+            self._loop.run_until_complete(self._loop.shutdown_asyncgens())
 
+        self._instance_count -= 1
+        self._loop.stop()
+        self._stopped.set()
 
 if __name__ == '__main__':
     service = Service()

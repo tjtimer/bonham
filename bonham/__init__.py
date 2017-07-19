@@ -1,5 +1,5 @@
-from bonham.root import *
+from .root import Service
 
 __all__ = [
-    *root.__all__,
+    'Service',
     ]

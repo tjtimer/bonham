@@ -1,6 +1,7 @@
 """
 
 """
+import json
 
 
 class RequestParserProtocol:
@@ -16,6 +17,12 @@ class RequestParserProtocol:
 
     def on_body(body: bytes):
         print(f"RequestParserProtocol - on_body(body) -> {body}")
+        try:
+            data = json.load(body.decode('utf-8'))
+            print(f"data at RequestParserProtocol on_body(): {data}")
+            return 200, data
+        except Exception as e:
+            print(f"exception at RequestParserProtocol on_body(): {e}")
 
     def on_message_complete():
         print(f"RequestParserProtocol - on_message_complete")

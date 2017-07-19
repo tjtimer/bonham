@@ -3,7 +3,6 @@ import json
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPFound, HTTPNotFound
 
-from bonham.bonham_auth import access_middleware
 from .serializer import serialize
 
 __all__ = [
@@ -23,7 +22,7 @@ async def error_middleware(app, handler):
             response = await handler(request)
             return response
         except HTTPNotFound:
-            return HTTPFound('/', headers={'REDIRECT-FROM': request.path})
+            return HTTPFound('/')
         except BaseException as e:
             app.logger.debug(f"request error:\n\t{type(e).__name__}\n\t{e}")
             return web.json_response({
@@ -86,5 +85,3 @@ async def db_middleware(app, handler):
                 return await handler(request)
 
     return db_engine_handler
-
-default_middlewares = [error_middleware, access_middleware]

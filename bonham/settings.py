@@ -1,11 +1,12 @@
 import logging
 import os
-from os.path import join as opj
 import socket
+from os.path import join as opj
 
 from .local_settings import *
+
 os.environ['VIRTUAL_ENV'] = '/var/www/tjtimer.com/server/venv/tjtimer-com'
-DEBUG = socket.gethostname() in 'tjs-roadrunner'  # True if it is my machine, false if not
+DEBUG = socket.gethostname() in MACHINE_NAME  # True if it is my machine, false if not
 
 if DEBUG:
     DSN = LOCAL_DSN
@@ -25,9 +26,7 @@ CONF_DIR = opj(SERVER_DIR, 'conf')
 TEMPLATES_DIR = opj(SERVER_DIR, 'templates')
 LOG_DIR = opj(SERVER_DIR, 'logs')
 TMP_DIR = opj(SERVER_DIR, 'tmp')
-PID_DIR = opj(SERVER_DIR, 'pids')
 SOCK_DIR = opj(SERVER_DIR, 'socks')
-SOCKET_FILE = opj(SOCK_DIR, f"{APPLICATION_NAME}")
 
 ASSETS_URL = '/assets'
 MEDIA_URL = '/media'

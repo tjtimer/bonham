@@ -1,8 +1,11 @@
+import random
+
 import arrow
 import asyncpg
 from hypothesis import given, strategies as st
 
 from bonham.settings import DSN
+from bonham.tests.conftest import TestModel
 
 
 @given(privacy=st.integers(min_value=1, max_value=7))
@@ -10,9 +13,12 @@ def test_create(testmodel, privacy, my_loop):
     async def _test_create():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                model = await testmodel().create(connection, data=dict(privacy=privacy))
+                model = await testmodel().create(
+                    connection, data=dict(privacy=privacy)
+                    )
+                assert isinstance(model, TestModel)
                 assert model['last_updated'] is None
-                assert model['id'] >= 1
+                assert model['_id'] >= 1
 
     my_loop.run_until_complete(_test_create())
 
@@ -33,9 +39,9 @@ def test_get_by_id(testmodel, id, my_loop):
     async def _test_get_by_id():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                model = await testmodel().get_by_id(connection, id=id)
+                model = await testmodel().get_by_id(connection, o_id=id)
                 if model:
-                    assert isinstance(model, (dict,))
+                    assert isinstance(model, TestModel)
                     assert arrow.get(model['created']) <= arrow.utcnow()
                 else:
                     assert model is None
@@ -45,7 +51,7 @@ def test_get_by_id(testmodel, id, my_loop):
 
 def test_get_with_kwargs(testmodel, my_loop):
     async def _test_get_with_kwargs():
-        fields = 'id,privacy,last_updated'
+        fields = ('_id', 'privacy', 'last_updated')
         where = f"last_updated IS NOT NULL AND privacy IN (1, 2, 3, 4)"
         order_by = 'last_updated ASC'
         limit = random.randint(1, 50)
@@ -81,7 +87,9 @@ def test_get_with_kwargs(testmodel, my_loop):
                         assert all(isinstance(item, (dict,)) for item in both)
                         assert all(item['privacy'] <= 4 for item in both)
                         assert all('created' not in item.keys() for item in both)
-                        assert len(list({model['id']: model for model in both})) is len(both)
+                        assert len(list(
+                            {model['_id']: model for model in both})) is len(
+                            both)
 
     my_loop.run_until_complete(_test_get_with_kwargs())
 
@@ -91,12 +99,13 @@ def test_update(testmodel, id, privacy, my_loop):
     async def _test_update():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                exists = await testmodel().get_by_id(connection, id=id)
+                exists = await testmodel().get_by_id(connection, o_id=id)
                 data = dict(id=id, privacy=privacy)
-                model = await testmodel().update(connection, data=data, data=data)
+                model = await testmodel().update(connection, data=data)
                 if exists:
-                    assert (arrow.utcnow() - arrow.get(model['last_updated']).to('utc')) <= timedelta(
-                            seconds=5)
+                    assert arrow.utcnow() <= arrow.get(
+                        model['last_updated']
+                        ).to('utc').replace(seconds=5)
                     assert model['privacy'] == privacy
                 else:
                     assert model is None
@@ -109,7 +118,7 @@ def test_delete(testmodel, id, my_loop):
     async def _test_delete():
         async with asyncpg.create_pool(dsn=DSN) as pool:
             async with pool.acquire() as connection:
-                if await testmodel().delete(connection, id=id):
+                if await testmodel().delete(connection, o_id=id):
                     del_model = await testmodel().get_by_id(connection, id=id)
                     assert del_model is None
 

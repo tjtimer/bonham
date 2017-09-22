@@ -1,13 +1,13 @@
 from aiohttp import web
 
-from bonham.bonham_auth import *
+from bonham.bonham_auth.models import Account
+from bonham.bonham_auth.token import create_token
 
 
 async def activate(request):
-    #  TODO: get account data as it is not send with the header (user clicked link in activation email)
     request['account'] = Account(activation_key=request.match_info['activation_key']).update(
             request['connection'], ref='activation_key', data=dict(activation_key='0'), returning=['id'])
-    access_token = await create_token(request)
+    access_token = await create_token('access', request)
     response = dict(
             message="You're account was successfully activated."
             )

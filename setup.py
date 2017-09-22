@@ -1,10 +1,11 @@
+import datetime
 import os
 
 from setuptools import find_packages, setup
 
 setup(
         name='bonham',
-        version='0.0.1.dev1',
+    version=f"0.0.1.dev1-{datetime.datetime.now()}",
         description='aiohttp based web app',
         url='https://github.com/tjtimer/bonham',
         author='Tim "tjtimer" Jedro',
@@ -14,8 +15,7 @@ setup(
         entry_points={
             'console_scripts': [
                 'bonham-run=bonham.root:run',
-                'bonham-create-app=bonham.bonham_development.create_app:run',
-                'bonham-dev-server=bonham.bonham_development.dev_server:run'
+                'bonham-dev-server=bonham.bonham_CLI.dev_server:run'
                 ],
             },
         zip_safe=False,

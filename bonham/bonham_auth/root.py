@@ -1,103 +1,138 @@
-
 """
-    Bonham Auth
-    Author: Tim "tjtimer" Jedro
-    Email: tjtimer@gmail.com
-    Version: 0.0.1dev
-    Auth flow:
-        - user creates account / signs up with email and password
-        - user gets mail with link containing the activation key
-        - user clicks link in mail
-        - account gets activated and user gets logged in
-        - login:
-            -> create refresh token and save to db (used to create new access token)
-            -> set cookie with refresh token (used on page request)
-            -> create access token (used for API requests; don't save anywhere)
-            -> set header with refresh token and access token
-        - logout:
-            -> delete cookie that holds the refresh token
-            -> delete refresh token from db
+Bonham Auth
+Author: Tim "tjtimer" Jedro
+Email: tjtimer@gmail.com
+Version: 0.0.1dev
+Auth flow:
+    - user creates account / signs in with email and password  # TODO: or
+    oAuth(2)
+    - user gets mail with link containing the activation key
+    - user clicks link in mail
+    - account gets activated and user gets logged in
+    - login:
+        -> create refresh token and save to db (used to create new access token)
+        -> set cookie with refresh token
+                used on page request and if access token has expired
+        -> create access token (used for API requests; don't save anywhere)
+        -> add refresh token cookie and access token to response
+    - logout:
+        -> delete cookie that holds the refresh token
+        -> delete refresh token from db
 """
 
-import logging
-import time
 from asyncio import gather
 
-import arrow
-from aiohttp import web
+from bonham.bonham_auth.handler import activate, login, logout, sign_up
+from bonham.bonham_auth.models import *
+from bonham.bonham_core.component import Component
+from bonham.bonham_core.db import create_tables
+from bonham.bonham_core.router import Route
+from bonham.settings import SUPERUSERS
 
-from bonham.bonham_auth.token import create_token
-from bonham.settings import ADMINS
-from .handler import activate, login, logout, sign_up
-from .models import *
+__all__ = ('Auth', 'authentication_required')
 
-__all__ = ['setup', 'shutdown', 'setup_routes', 'setup_admins', 'authentication_required_response']
+ROUTES = (
+    Route('POST', r'sign-up/', sign_up, 'sign-up'),
+    Route('PUT', r'login/', login, 'login'),
+    Route('PUT', r'logout/', logout, 'logout'),
+    Route('PUT', r'{activation_key}/', activate, 'activate')
+    )
 
-
-async def authentication_required_response():
-    response = dict(error=f"Please log in or sign up to proceed.")
-    return web.json_response(response, status=401)
-
-
-async def add_tables(service):
-    for model in [Account, RefreshToken]:
-        service.tables[model.__table__] = model.__table__.c.keys()
-    return service
-
-
-async def setup_routes(router):
-    router.add_post('/sign-up/', sign_up, name='sign-up')
-    router.add_put('/login/', login, name='login')
-    router.add_put(r'/logout/', logout, name='logout')
-    router.add_get(r'/{activation_key}/', activate, name='activate')
+DEFAULT_ROLES = {
+    'admin': (1, 1, 1),  # can add, update, delete
+    'editor': (1, 1, 0),  # can add and update
+    'friend': (1, 0, 0),  # can add
+    'follower': (0, 0, 0),  # can't do anything
+    'default': (0, 0, 0)  # can't do anything
+    }
 
 
-async def setup_admins(service):
-    service['admins'] = dict()
-    async with service.db.acquire() as connection:
-        admins = await Account(is_superuser=True).get(connection, returning=['id', 'email'])
-        if not admins:
-            admins_data = ADMINS
-            for acc_data in admins_data:
-                admin = await Account().create(connection,
-                                               data=acc_data,
-                                               returning=['id', 'email', 'created']
-                                               )
-                print(admin)
-                ref_token_data = dict(
-                        id=admin['id'],
-                        idc=arrow.get(admin['created']).format('X'),
-                        clientId=f"{admin['email'].split('@')[0]}.{time.time()}")
-                ref_token = await create_token(ref_token_data)
-                await RefreshToken().create(connection,
-                                            data=dict(owner=admin['id'], token=ref_token),
-                                            returning=['id'])
-                service['admins'][admin['id']] = {'id': admin['id'], 'email': admin['email']}
-        else:
-            service['admins'] = {admin['id']: {'id': admin['id'], 'email': admin['email']} for admin in admins}
-    return service
+class Auth(Component):
+    r"""Authentication and Authorisation Component"""
 
-
-async def log_logged_in(account):
-    logger = logging.getLogger('bonham.root')
-    logger.debug(f"login success: {account}")
-
-
-async def shutdown(service):
-    print(f"Authentication shut down!")
-
-
-async def setup(service):
-    service.logger.debug(f"Authentication setup")
-    # service.middlewares.append(access_middleware)  # must be part of the global middleware chain
-    # service.middlewares.append(bearer_middleware)  # must be part of the global middleware chain
-    auth = web.Application(loop=service.loop)
-    await gather(
-            add_tables(service),
-            setup_admins(service),
-            setup_routes(auth.router)
+    def __init__(self):
+        super().__init__()
+        self._tables = create_tables(
+            models=(
+                Account, Role, AccountRole,
+                Permission, Client
+                )
             )
-    auth['root'] = service
-    auth['failed_logins'] = {}
-    auth['authenticated_accounts'] = set()
-    service.add_subapp('/auth', auth)
+
+    @staticmethod
+    async def setup_superusers(service):
+        """
+        Creates superusers in database if they don't already exist
+        and adds them to the services _state attribute.
+
+        get superusers from service:
+            superusers = service['superusers']
+
+        add admin to service:
+            service['superusers'][new_superuser['id']] = new_superuser
+        """
+        service.logger.debug(f"creating super users")
+        service['superusers'] = dict()
+        async with service.db.pool.acquire() as connection:
+            account = Account(connection)
+            superusers = list(await account.get(
+                many=True,
+                fields=['id', 'email'],
+                where=f"is_superuser=True"
+                ))
+            print(f"superusers: {superusers}")
+            if not len(superusers):
+                for _superuser in SUPERUSERS:
+                    await account.create(
+                        data=dict(_superuser)
+                        )
+                    print(f"created superuser: {account}")
+                    service['superusers'][account.id] = dict(id=account.id,
+                                                             email=account.email)
+            else:
+                service.logger.debug(
+                    f"\n\tregistered superusers: {list(superusers)}"
+                    )
+                service['superusers'] = {
+                    superuser['id']: dict(
+                        id=superuser['id'],
+                        email=superuser['email']
+                        ) for superuser in superusers
+                    }
+
+    @staticmethod
+    async def setup_roles_and_permissions(service):
+        """
+        Creates roles and permissions in database if they don't already exist.
+
+        """
+        service.logger.debug(f"creating roles and permissions")
+        async with service.db.pool.acquire() as connection:
+            for role_name, permissions in DEFAULT_ROLES.items():
+                role = Role(connection, name=role_name)
+                await role.get(where=f"name='{role_name}'")
+                if role.id is None:
+                    await role.create()
+                for table_name in service['tables']:
+                    permission = Permission(
+                        connection, role_id=role.id, table_name=table_name,
+                        can_add=str(permissions[0]),
+                        can_update=str(permissions[1]),
+                        can_delete=str(permissions[2]))
+                    await permission.get(
+                        where=f"role_id={role.id} AND table_name='{table_name}'"
+                        )
+                    if permission.id is None:
+                        await permission.create()
+
+    async def setup(self, service):
+        await gather(
+            self.setup_superusers(service),
+            service.router.register(ROUTES, prefix='/auth/')
+            )
+        service['tables'].update(self._tables)
+        service['failed_logins'] = {}
+        # service._on_startup.append(self.setup_roles_and_permissions)
+
+    async def shutdown(self, service):
+        print(f"Authentication shut down!")

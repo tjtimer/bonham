@@ -1,3 +1,0 @@
-"""
-    Author: Tim "tjtimer" Jedro
-"""

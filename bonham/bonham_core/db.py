@@ -1,35 +1,43 @@
 # bonham/db.py
 import logging
-from typing import Any, Iterator
+from collections import namedtuple
+from typing import Generator, Iterator
 
 import asyncpg
 import psycopg2 as psql
 import sqlalchemy as sa
-from aiohttp.signals import Signal
 from asyncpg.connection import Connection
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
+from bonham.bonham_core.component import Component
 from bonham.bonham_core.models import Base
 from bonham.settings import DEBUG, DSN
 
 version = '0.0.1b1'
 
-__all__ = ['setup', 'shutdown', 'ForeignKey', 'create_db', 'drop_db', 'create_tables', 'drop_tables',
-           'create', 'update', 'delete', 'get', 'get_by_id', 'get_by_key']
+__all__ = (
+    'ServiceDb', 'ForeignKey',
+    'create_db', 'drop_db',
+    'create_tables', 'drop_tables',
+    'create', 'update', 'delete',
+    'get', 'get_by_id', 'get_by_key'
+    )
 
+log = logging.getLogger(__name__)
 #  engine to use for table creation
 engine = sa.create_engine(DSN, client_encoding='utf8')
 
 
+
 def create_db(name: str, *, user: str = None, password: str = None) -> None:
-    """
+    r"""
     Create a new database with given name
     :param name: name of database to create
     :param user: user name / database role
     :param password: database server password for given user / role
     :return: None or raise Exception
     """
-    if user is None or password is None:
+    if user is None or password is not None:
         raise TypeError("Missing required keyword arguments user and/or password")
     try:
         con = psql.connect(
@@ -47,14 +55,14 @@ def create_db(name: str, *, user: str = None, password: str = None) -> None:
 
 
 def drop_db(name: str, *, user: str = None, password: str = None) -> None:
-    """
+    r"""
     Drop database with given name
     :param name: name of database to create
     :param user: user name / database role
     :param password: database server password for given user / role
     :return: None or raise Exception
     """
-    if user is None or password is None:
+    if user is None or password is not None:
         raise TypeError("Missing required keyword arguments user and/or password")
     try:
         con = psql.connect(
@@ -71,52 +79,82 @@ def drop_db(name: str, *, user: str = None, password: str = None) -> None:
         raise
 
 
-async def setup(service):
-    """
-    Create a connection pool to a postgresql database and setup signals. Add this to given app.
+signals = (
+    'on_db_obj_created',
+    'on_db_obj_read',
+    'on_db_obj_updated',
+    'on_db_obj_deleted'
+    )
 
+
+class ServiceDb(Component):
+    r"""ServiceDb
+    Provides a database connection pool and signals
+    """
+    __slots__ = ()
+
+    def __init__(self):
+        super().__init__()
+        self.pool = None
+        self.channel = None
+
+    async def setup(self, service=None):
+        r"""Create an asyncpg connection pool to a postgresql database
+            and setup signals.
+
+        Usage:
+            to get a connection as context manager
+            async with service.db.acquire() as connection:
+                result = await connection.execute(query)
+
+            to listen to signals use any list methods,
+            e.g. service.on_db_obj_created.append(my_listener_coro)
+
+            to send a signal use coroutine send,
+            e.g. await service.on_db_obj_created.send(*args, **kwargs)
+
+        :param service: service instance
+        """
+        self.channel = await service.register_channel('service-db')
+        self.pool = await asyncpg.create_pool(dsn=DSN, command_timeout=60)
+        await service.register_signals(signals)
+        service['tables'] = {}
+        service.db = self
+
+    async def shutdown(self, service):
+        r"""Gracefully shutdown all open connections to the database,
+        close the connection pool and remove attribute 'db' from service
+        instance."""
+        await self.channel.close()
+        await self.pool.close()
+        service.__delattr__('db')
+
+
+def create_tables(models: (Iterator, Generator)) -> dict:
+    r"""
+    Create tables in the database
     Usage:
-        to get a connection as context manager
-        async with service.db.acquire() as connection:
-            result = await connection.execute(query)
+        class MyServiceComponent(Component):
+            def __init__(self):
+                self.tables = create_tables([<MyModel1>, <MyModel2>, ....])
 
-        to listen to signals use any list methods, e.g. service.on_db_obj_created.append(my_listener_func)
-        to send a signal use coroutine send, e.g. await service.on_db_obj_created.send(*args, **kwargs)
-    :param service: service instance
+            ...
+            async def setup(self, service):
+                service.tables.update(self.tables)
+
     """
-    service.db = await asyncpg.create_pool(dsn=DSN, command_timeout=60)
-    service.on_db_obj_created = Signal(service)
-    service.on_db_obj_read = Signal(service)
-    service.on_db_obj_updated = Signal(service)
-    service.on_db_obj_deleted = Signal(service)
-    service.tables = {}
-
-
-async def shutdown(app):
-    """ Gracefully shutdown all open connections to te database and close the connection pool."""
-    await app.db.close()
-    print(f"db is closed.")
-    return app
-
-
-def create_tables(models: (list, tuple)) -> list:
-    """
-    Create a tables in the database
-    Usage:
-        Put create_tables([<MyModel1>, <MyModel2>, ....]) at the end of your models.py.
-        This will create your tables when the models module is imported for the first time.
-    :param models: a list or tuple of Models to create tables for. model attributes will be table columns
-    :return: a list of newly created tables (see sqlalchemy: <class Table>)
-    """
-    engine = sa.create_engine(DSN, client_encoding='utf8', echo=True)
     for model in models:
         model.metadata.bind = engine
     Base.metadata.create_all()
-    return [model.__table__ for model in models]
+    return {
+        model.__tablename__: namedtuple(
+            model.__tablename__, model.__table__.c.keys()
+            ) for model in models
+        }
 
 
 def drop_tables(tables: (list, tuple)) -> bool:
-    """
+    r"""
     Drop tables from the database.
     :param tables: a list or tuple of table names that should get dropped
     :return: True if succeeded False otherwise
@@ -134,25 +172,38 @@ def drop_tables(tables: (list, tuple)) -> bool:
         return False
 
 
-def ForeignKey(related: str, **kwargs) -> sa.Column:
-    """
+class ForeignKey(sa.Column):
+    r"""
     Shortcut for sqlalchemy's ForeignKey.
-    :param related: table name of related object
-    :param kwargs: contains config options of ForeignKey, like ondelete, onupdate (for both default is CASCADE)
-                        or primary_key (default is True)
-                         read postgresql documentation for more information
-                         https://www.postgresql.org/docs/9.6/static/ddl-constraints.html#DDL-CONSTRAINTS-FK
-    :return: Foreignkey definition
     """
-    ondelete = kwargs.get('ondelete', "CASCADE")
-    onupdate = kwargs.get('onupdate', "CASCADE")
-    primary_key = kwargs.get('primary_key', True)
-    return sa.Column(sa.Integer, sa.ForeignKey(f"{related}.id", ondelete=ondelete, onupdate=onupdate),
-                     primary_key=primary_key)
+
+    def __init__(self, related: str, **kwargs):
+        r"""
+        :param related: table name of related object
+        :param kwargs: contains config options of ForeignKey, like ondelete,
+            onupdate (for both default is CASCADE)
+            or primary_key (default is True)
+
+        read postgresql documentation for more information
+        https://www.postgresql.org/docs/9.6/static/ddl-constraints.html#DDL
+        -CONSTRAINTS-FK
+        """
+        ondelete = kwargs.get('ondelete', "CASCADE")
+        onupdate = kwargs.get('onupdate', "CASCADE")
+        primary_key = kwargs.get('primary_key', True)
+        super().__init__(
+            sa.Integer,
+            sa.ForeignKey(
+                f"{related}.id",
+                ondelete=ondelete,
+                onupdate=onupdate),
+            primary_key=primary_key
+            )
 
 
-async def create(connection: Connection, table: str, *, data: dict = None, **kwargs) -> dict or None:
-    """
+async def create(connection: Connection, table: str, *,
+                 data: dict = None, **kwargs) -> dict or None:
+    r"""
     Create a new row in given table and return that newly created row.
     Specify which fields/columns to return by setting keyword argument
     'returning' to a list of column names (default is ['*']).
@@ -166,45 +217,66 @@ async def create(connection: Connection, table: str, *, data: dict = None, **kwa
         if value is not None
         }
     columns = ','.join(key for key in data.keys())
-    values = tuple(data.values())
+    values = tuple(data.values()) if len(data.values()) > 1 \
+        else f"('{list(data.values())[0]}')"
     ret = kwargs.pop('returning', ['*'])
     if len(ret) > 1 and not isinstance(ret, (list, tuple)):
         raise TypeError(f"<returning> must be type list or tuple")
-    stmt = f"INSERT INTO {table} ({columns}) VALUES {values} RETURNING {','.join(ret)}"
-    print(f"create {table} stmt: {stmt}")
+    stmt = f"INSERT INTO {table} ({columns}) " \
+           f"VALUES {values} " \
+           f"RETURNING {','.join(ret)}"
+    print(stmt)
     result = await connection.fetchrow(stmt)
-    if result:
+
+    if result is not None:
         return dict(result)
-    else:
-        return None
+    return None
 
 
-async def update(connection: Connection, table: str, *, data: dict = None, **kwargs) -> dict or None:
-    """
+async def update(
+    connection: Connection, table: str, *,
+    data: dict = None, ref: tuple = None, **kwargs
+    ) -> dict or None:
+    r"""
     Update a single row in given table.
-    :param connection:  Connection to database
+    :param connection: connection to database
     :param table: table name
-    :param data: key: value pairs with data (must contain object id or reference key and value if kwargs['ref'] is
-    given)
-    :return: updated row as dict containing all columns or those specified by kwargs['returning']
+    :param data: key value pairs with new data (must contain object id or
+        reference key and value if kwargs['ref'] is given)
+    :return: updated row as dict containing all columns or those specified by
+        kwargs['returning']
     """
-    ref = kwargs.get('ref', 'id')
     ret = kwargs.get('returning', ['*'])
-    if len(ret) > 1 and not isinstance(ret, (list, tuple)):
+
+    if not isinstance(ret, (list, tuple)):
         raise TypeError(f"<returning> must be type list or tuple")
-    updates = ','.join(f"{key}={value} " for key, value in data.items()
-                       if key not in [ref, 'id', 'created'] and value is not None)
+    if ref is None:
+        raise TypeError('ref must be given and of type tuple(str: '
+                        'column_name, any: value)')
+    updates = ','.join(
+        f"{key}='{value}' " for key, value in data.items()
+        if key not in [
+            'id', 'created', 'last_updated', 'update_count'
+            ]
+        and value is not None
+        )
+
     defaults = "last_updated=CURRENT_TIMESTAMP, update_count=update_count+1"
-    stmt = f"UPDATE {table} SET {updates}, {defaults} WHERE {ref} = '{data[ref]}' RETURNING {','.join(ret)}"
+
+    stmt = f"UPDATE {table} " \
+           f"SET {updates}, {defaults} " \
+           f"WHERE {ref[0]} = '{ref[1]}' " \
+           f"RETURNING {','.join(ret)}"
+    print(stmt)
     result = await connection.fetchrow(stmt)
-    if result:
+
+    if result is not None:
         return dict(result)
-    else:
-        return None
+    return None
 
 
 async def delete(connection, table: str, *, o_id: int = None) -> int or None:
-    """
+    r"""
     Delete a single row from the given table.
     :param connection:  Connection to database
     :param table: table name
@@ -213,38 +285,49 @@ async def delete(connection, table: str, *, o_id: int = None) -> int or None:
     """
     stmt = f"DELETE FROM {table} WHERE id={o_id}"
     result = await connection.fetchval(stmt)
-    if result:
-        return result
+    if result is not None:
+        return dict(result)
     return None
 
 
-async def get(connection: Connection, table: str, *, where: str = None, **kwargs) -> Iterator or None:
-    """
+async def get(connection: Connection, table: str, *, where: str = None,
+              **kwargs) -> Generator or None:
+    r"""
     Get all rows that match the given parameters/filters.
     :param connection:  Connection to database
     :param table: table name
     :param where: filter string (e.g. "id=<some_id> AND name=<some_name>")
-    :return: a generator with every row as dict containing all columns or those specified by kwargs['fields']
-    :rtype: generator / Iterator
+    :return: a generator with every row as dict containing
+            all columns or those specified by kwargs['fields']
+    :rtype: Generator / Iterator
     """
-    fields = kwargs.get('fields', '*')
+    fields = kwargs.get('fields', ['*'])
     if len(fields) > 1 and not isinstance(fields, (list, tuple)):
-        raise TypeError(f"<fields>' must be type list or tuple")
-    order_by = kwargs.get('order_by', 'id')
-    offset = kwargs.get('offset', 0)
-    limit = kwargs.get('limit', 100)
+        raise TypeError(f"<fields> must be type list or tuple")
     stmt = f"SELECT {','.join(fields)} FROM {table} "
     if where is not None:
         stmt += f"WHERE {where} "
-    stmt += f"ORDER BY {order_by} OFFSET {offset} LIMIT {limit}"
-    rows = await connection.fetch(stmt)
-    if len(rows):
-        return (dict(row) for row in rows)
+    print(f"\n\nDB get statement: {stmt}\n\n")
+
+    if kwargs.get('many', False):
+        order_by = kwargs.get('order_by', 'id')
+        offset = kwargs.get('offset', 0)
+        limit = kwargs.get('limit', 100)
+        stmt += f"ORDER BY {order_by} " \
+                f"OFFSET {offset} " \
+                f"LIMIT {limit}"
+        rows = await connection.fetch(stmt)
+        if rows is not None:
+            return (row for row in rows)
+    else:
+        row = await connection.fetchrow(stmt)
+        if row is not None:
+            return row
     return None
 
 
 async def get_by_id(connection: Connection, table: str, *, o_id: int = None, **kwargs) -> dict or None:
-    """
+    r"""
     Get a single row by given id.
     :param connection:  Connection to database
     :param table: table name
@@ -256,39 +339,6 @@ async def get_by_id(connection: Connection, table: str, *, o_id: int = None, **k
         raise TypeError(f"<fields> must be type list or tuple")
     stmt = f"SELECT {','.join(fields)} FROM {table} WHERE id={o_id}"
     row = await connection.fetchrow(stmt)
-    if row:
-        return dict(row)
-    return None
-
-
-async def get_by_key(connection: Connection, table: str, *,
-                     key: str = None, value: Any = None, **kwargs) -> dict or Iterator or None:
-    """
-    Get row(s) by given key value pair.
-    :param connection:  Connection to database
-    :param table: table name
-    :param key: name of referenced column
-    :param value: value to search for
-    :returns: if kwargs['many'] and kwargs['many'] is True this method returns an generator / Iterator
-                    containing each matching row as a dict else returns a single matching row as dict
-    """
-    fields = kwargs.get('fields', '*')
-    if len(fields) > 1 and not isinstance(fields, (list, tuple)):
-        raise TypeError(f"<fields> must be type list or tuple")
-    many = kwargs.get('many', False)
-    operator = kwargs.get('operator', '=')
-    order_by = kwargs.get('order_by', 'id')
-    offset = kwargs.get('offset', 0)
-    limit = kwargs.get('limit', 100)
-    stmt = f"SELECT {','.join(fields)} FROM {table} WHERE {key} {operator} '{value}'"
-    stmt += f"ORDER BY {order_by} OFFSET {offset} LIMIT {limit}"
-    if many:
-        rows = await connection.fetch(stmt)
-        if rows:
-            return (dict(row) for row in rows)
-        else:
-            return None
-    row = await connection.fetchrow(stmt)
-    if row:
+    if row is not None:
         return dict(row)
     return None

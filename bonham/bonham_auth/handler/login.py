@@ -1,18 +1,24 @@
 from aiohttp import web
+from aiohttp.web_exceptions import HTTPBadRequest
 
-from bonham.bonham_auth import *
-from bonham.bonham_core import *
+from bonham.bonham_auth.functions import check_password, check_retries
+from bonham.bonham_auth.models import Account, Client
+from bonham.bonham_auth.token import create_token
+from bonham.bonham_core.decorators import db_connection, load_data
+from bonham.bonham_core.exceptions import RequestDenied
 
 
+@load_data
+@db_connection
 async def login(request: web.Request) -> web.json_response:
-    """
+    """login
     flow:
-        - read email from request['data']
+        - read email from data
         - check retries
             -> refuse request if user failed to log in more than:
                 - 3 times in 90 seconds
                 - more than 20 times in 60 minutes
-        - get account data from db
+        - get account data from db by given email
         - check password
             -> if password is wrong
                 - refuse request
@@ -25,43 +31,110 @@ async def login(request: web.Request) -> web.json_response:
         - add bearer token cookie to response.cookies
         - return response
 
-    :param request: contains data and app, necessary to perform login
-    :type request: aiohttp.web.Request
-    :return: response object containing cookies, headers and message
-    :rtype: aiohttp.web.json_response
+    ---
+    description: Login endpoint
+    tags:
+    - Authentication
+    responses:
+        "200 OK":
+            description:
+                returns welcome back message
+                and client settings
+            headers:
+                Cookie-Set:
+                    description: holding bearer cookie
+                    type: string
+                Access-Token:
+                    description: holding access token
+                    type: string
+                Refresh-Token:
+                    description: holding refresh token
+                    type: string
     """
     try:
-        await check_retries(request['data']['email'], request.app['failed_logins'])
-        account = await Account(
-                email=request['data']['email']
-                ).get_by_key(
-                request['connection'],
-                key='email', returning=['id', 'email', 'password']
+        data = request['data']
+        assert all(key in data.keys()
+                   for key in ['email', 'password']), 'email and password ' \
+                                                      'must be provided'
+        await check_retries(
+            data['email'], request.app['failed_logins']
+            )
+        user_agent = request.headers.get('User-Agent', 'no-ua')
+        host = request.headers.get('Host', 'no-host')
+        account = Account(request['db_connection'])
+        client = Client(request['db_connection'])
+        await account.get(
+            where=f"email='{data['email']}'",
+            returning=['id', 'email', 'password', 'created']
+            )
+        if account.id is None:
+            return HTTPBadRequest(
+                body=f"Account {data['email']} does not exist"
                 )
-        await check_password(request, account['password'])
-        await Account(
-                id=account['id'], logged_in=True
-                ).update(
-                request['connection'],
-                returning=['id']
+        await check_password(request, account.password)
+        await account.update(
+            data=dict(
+                logged_in=True
+                ),
+            returning=['logged_in', 'last_updated']
+            )
+        await client.get(
+            where=f"owner={account.id} "
+                  f"AND host='{host}' "
+                  f"AND user_agent='{user_agent}'"
                 )
-        access_token = await create_token(request)
-        refresh_token = await RefreshToken(
-                owner=account['id']
-                ).get_by_key(
-                request['connection'], key='owner'
+        if client.id is None:
+            bearer_token_payload = dict(
+                id=account.id,
+                clientId=f"{account.id}@{host}-"
+                         f"{user_agent}"
                 )
+            bearer_token = await create_token('bearer', bearer_token_payload)
+            await client.create(
+                data=dict(
+                    owner=account.id,
+                    host=host,
+                    user_agent=user_agent,
+                    token=bearer_token
+                    )
+                )
+        access_token_payload = dict(
+            id=account.id,
+            email=account.email,
+            locale=account.locale,
+            idc=account['created'],
+            cbt=client.token
+            )
+        access_token = await create_token('access', access_token_payload)
         response = web.json_response(
-                dict(message=f"welcome back {request['data']['email']}."),
-                headers=dict(access=access_token, bearer=refresh_token['token'])
+            dict(
+                message=f"welcome back {account.email}",
+                client_settings=client.settings),
+            headers=dict(access=access_token)
                 )
         max_age = 2400 * 3600  # 100 days
-        response.set_cookie('bearer', str(refresh_token['token']),
-                            max_age=max_age, secure=True, httponly=True)
+        response.set_cookie(
+            'bearer', client.token,
+            max_age=max_age, secure=True, httponly=True
+            )
         return response
-    except KeyError as e:
-        return web.json_response(dict(error=f"Request must provide {e}."))
-    except TypeError:
-        return web.json_response(dict(error=f"account with email {request['data']['email']} does not exist"), status=401)
-    except RequestDenied as e:
-        return web.json_response(dict(error=e), status=401)
+    except AssertionError as ae:
+
+        return web.json_response(
+            dict(error=f"{ae}"),
+            status=405
+            )
+
+    except KeyError as ke:
+
+        return web.json_response(
+            dict(error=f"Request must provide {ke}."),
+            status=405
+            )
+
+    except RequestDenied as rd:
+
+        return web.json_response(
+            dict(error=str(rd)),
+            status=401
+            )

@@ -6,14 +6,8 @@ import arrow
 import asyncpg
 import hypothesis.strategies as st
 from aiohttp import web
-from aiohttp.signals import Signal
 from hypothesis import given
 from sqlalchemy import Table
-
-from bonham import db
-from bonham.models import BaseModel, Connect
-from bonham.settings import DSN
-from bonham.utils import prepared_uvloop
 
 
 def test_setup_db():

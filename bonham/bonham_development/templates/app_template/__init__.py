@@ -1,8 +1,0 @@
-"""
-    Project:
-    Author:
-    Version:
-
-    Description:
-"""
-

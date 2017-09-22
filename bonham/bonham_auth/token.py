@@ -16,7 +16,9 @@ __all__ = ['create_token', 'decode_token', 'verify_token']
 if DEBUG and not path.isfile(PUBLIC_KEY_FILE):
     create_self_signed_ca()
 
-DEFAULT_EXPIRATION = arrow.utcnow().replace(minutes=5).format('X')
+ACCESS_EXPIRATION = arrow.utcnow().replace(minutes=5).format('X')
+BEARER_EXPIRATION = arrow.utcnow().replace(years=4).format('X')
+
 
 async def get_private_key():
     async with aiofiles.open(PRIVATE_KEY_FILE, 'rb') as private_key_file:
@@ -28,11 +30,12 @@ async def get_private_key():
         return private_key
 
 
-async def create_token(payload: dict) -> str:
-    payload['exp'] = payload.pop('exp', DEFAULT_EXPIRATION)
+async def create_token(token_type: str, payload: dict) -> str:
+    payload[
+        'exp'] = ACCESS_EXPIRATION if token_type == 'access' else BEARER_EXPIRATION
     private_key = await get_private_key()
-    access_token = jwt.encode(payload, private_key, algorithm='RS256')
-    return access_token.decode('utf-8')
+    token = jwt.encode(payload, private_key, algorithm='RS256')
+    return token.decode('utf-8')
 
 
 async def decode_token(token: str) -> dict:

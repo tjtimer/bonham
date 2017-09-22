@@ -1,5 +1,3 @@
-import os
-
 import arrow
 from aiohttp import web
 from cryptography.hazmat.backends import openssl
@@ -7,7 +5,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from passlib.hash import pbkdf2_sha512
 
-from bonham.bonham_core import *
+from bonham.bonham_core.exceptions import RequestDenied
 from bonham.settings import *
 
 __all__ = [
@@ -59,8 +57,9 @@ async def check_retries(email: str, failed_logins: dict) -> None:
 
 
 async def update_failed(request: web.Request) -> None:
+    print(f"\n\nupdate_failed:\n\trequest: {vars(request)}")
     email = request['data']['email']
-    failed_logins = request['failed_logins']
+    failed_logins = request.app['failed_logins']
     now = arrow.now()
     if email in failed_logins.keys():
         failed_logins[email].append(now)

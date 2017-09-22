@@ -5,8 +5,7 @@ from collections import Iterator
 import arrow
 import curio
 
-from .constants import Privacy
-from .utils import camel_case
+from .helper import camel_case
 
 __all__ = ['serialize']
 

@@ -11,6 +11,5 @@ __all__ = (
     'helper',
     'validators',
     'views',
-    'router',
     'service'
     )

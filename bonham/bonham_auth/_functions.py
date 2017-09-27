@@ -1,6 +1,3 @@
-mport
-os
-
 import os
 
 from cryptography.hazmat.backends import openssl

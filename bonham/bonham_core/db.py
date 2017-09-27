@@ -16,7 +16,7 @@ from bonham.settings import DEBUG, DSN
 version = '0.0.1b1'
 
 __all__ = (
-    'ServiceDb', 'ForeignKey',
+    'Db', 'ForeignKey',
     'create_db', 'drop_db',
     'create_tables', 'drop_tables',
     'create', 'update', 'delete',
@@ -87,24 +87,23 @@ signals = (
     )
 
 
-class ServiceDb(Component):
-    r"""ServiceDb
-    Provides a database connection pool and signals
+class Db(Component):
+    r"""Db
+    Provides a database connection pool,
+    available tables and signals.
     """
-    __slots__ = ()
-
     def __init__(self):
         super().__init__()
-        self.pool = None
-        self.channel = None
+        self._pool = None
+        self.tables = {}
 
     async def setup(self, service=None):
-        r"""Create an asyncpg connection pool to a postgresql database
+        r"""Create an asyncpg connection _pool to a postgresql database
             and setup signals.
 
         Usage:
             to get a connection as context manager
-            async with service.db.acquire() as connection:
+            async with service.dbc.acquire() as connection:
                 result = await connection.execute(query)
 
             to listen to signals use any list methods,
@@ -115,18 +114,16 @@ class ServiceDb(Component):
 
         :param service: service instance
         """
-        self.channel = await service.register_channel('service-db')
-        self.pool = await asyncpg.create_pool(dsn=DSN, command_timeout=60)
+        self._pool = await asyncpg.create_pool(dsn=DSN, command_timeout=60)
         await service.register_signals(signals)
-        service['tables'] = {}
-        service.db = self
+        setattr(service, 'db', self._pool)
 
     async def shutdown(self, service):
         r"""Gracefully shutdown all open connections to the database,
-        close the connection pool and remove attribute 'db' from service
+        close the connection _pool and remove attribute 'db' from service
         instance."""
         await self.channel.close()
-        await self.pool.close()
+        await self._pool.close()
         service.__delattr__('db')
 
 

@@ -5,7 +5,6 @@ from bonham.bonham_auth.functions import check_password, check_retries
 from bonham.bonham_auth.models import Account, Client
 from bonham.bonham_auth.token import create_token
 from bonham.bonham_core.decorators import db_connection, load_data
-from bonham.bonham_core.exceptions import RequestDenied
 
 
 @load_data
@@ -68,16 +67,10 @@ async def login(request: web.Request) -> web.json_response:
             returning=['id', 'email', 'password', 'created']
             )
         if account.id is None:
-            return HTTPBadRequest(
+            raise HTTPBadRequest(
                 body=f"Account {data['email']} does not exist"
                 )
         await check_password(request, account.password)
-        await account.update(
-            data=dict(
-                logged_in=True
-                ),
-            returning=['logged_in', 'last_updated']
-            )
         await client.get(
             where=f"owner={account.id} "
                   f"AND host='{host}' "
@@ -127,14 +120,4 @@ async def login(request: web.Request) -> web.json_response:
 
     except KeyError as ke:
 
-        return web.json_response(
-            dict(error=f"Request must provide {ke}."),
-            status=405
-            )
-
-    except RequestDenied as rd:
-
-        return web.json_response(
-            dict(error=str(rd)),
-            status=401
-            )
+        raise HTTPBadRequest(text=f"Request must provide {ke}.")

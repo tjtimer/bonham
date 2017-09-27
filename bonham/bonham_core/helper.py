@@ -67,16 +67,16 @@ def normalize_title(value: str) -> str:
     return ' '.join(part.capitalize() for part in value.split(' '))
 
 
-def camel_case(value: str) -> str:
+async def camel_case(value: str) -> str:
     v_list = value.replace('-', '_').split('_')
-    if len(v_list) == 1:
-        return value.lower()
     camel_cased = v_list[0].lower()
+    if len(camel_cased) == 1:
+        return camel_cased
     camel_cased += ''.join(part.capitalize() for part in v_list[1:])
     return camel_cased
 
 
-def kebap_case(word: str) -> str:
+async def kebap_case(word: str) -> str:
     kebap_cased = word[0].lower()
     for letter in word[1:]:
         replacement = ''

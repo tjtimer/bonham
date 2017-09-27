@@ -240,6 +240,6 @@ class Model(BaseModel):
         super().__init__(connection, **kwargs)
 
 
-class Content(BaseModel):
+class Content(Model):
     allows_comments = sa.Column(sa.Boolean, server_default="1")
     allows_likes = sa.Column(sa.Boolean, server_default="1")

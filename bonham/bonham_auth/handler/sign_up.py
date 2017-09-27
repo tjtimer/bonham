@@ -5,7 +5,7 @@ from bonham.bonham_auth.models import Account
 from bonham.bonham_auth.token import create_token
 from bonham.bonham_auth.validators import is_valid_sign_up_data
 from bonham.bonham_core.exceptions import RequestDenied
-from bonham.bonham_core.serializer import serialize
+from bonham.bonham_core.serializer import Serializer
 
 __all__ = ('sign_up',)
 
@@ -30,7 +30,7 @@ async def sign_up(request: web.Request) -> web.json_response:
                       f"with a link to finish the sign up process."
             response = dict(
                 message=message,
-                data=await serialize('accounts', account)
+                data=await Serializer.serialize('accounts', account)
                 )
             headers = dict(access=access_token)
             return web.json_response(response, headers=headers)

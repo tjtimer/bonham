@@ -20,22 +20,19 @@ Auth flow:
         -> delete refresh token from db
 """
 
-from asyncio import gather
-
 from bonham.bonham_auth.handler import activate, login, logout, sign_up
 from bonham.bonham_auth.models import *
 from bonham.bonham_core.component import Component
 from bonham.bonham_core.db import create_tables
-from bonham.bonham_core.router import Route
 from bonham.settings import SUPERUSERS
 
 __all__ = ('Auth', 'authentication_required')
 
 ROUTES = (
-    Route('POST', r'sign-up/', sign_up, 'sign-up'),
-    Route('PUT', r'login/', login, 'login'),
-    Route('PUT', r'logout/', logout, 'logout'),
-    Route('PUT', r'{activation_key}/', activate, 'activate')
+    ('POST', r'sign-up/', sign_up, 'sign-up'),
+    ('PUT', r'login/', login, 'login'),
+    ('PUT', r'logout/', logout, 'logout'),
+    ('PUT', r'{activation_key}/', activate, 'activate')
     )
 
 DEFAULT_ROLES = {
@@ -72,8 +69,9 @@ class Auth(Component):
             service['superusers'][new_superuser['id']] = new_superuser
         """
         service.logger.debug(f"creating super users")
+        service.logger.debug(f"service {vars(service)}")
         service['superusers'] = dict()
-        async with service.db.pool.acquire() as connection:
+        async with service.db.acquire() as connection:
             account = Account(connection)
             superusers = list(await account.get(
                 many=True,
@@ -126,11 +124,14 @@ class Auth(Component):
                         await permission.create()
 
     async def setup(self, service):
-        await gather(
-            self.setup_superusers(service),
-            service.router.register(ROUTES, prefix='/auth/')
-            )
-        service['tables'].update(self._tables)
+        for route in ROUTES:
+            service.router.add_route(
+                route[0], f'/auth/{route[1]}',
+                route[2], name=route[3]
+                )
+
+        await self.setup_superusers(service)
+        service.db.tables.update(self._tables)
         service['failed_logins'] = {}
         # service._on_startup.append(self.setup_roles_and_permissions)
 

@@ -4,7 +4,7 @@ import json
 import arrow
 from curio import run
 
-from bonham.serializer import serialize
+from bonham import Serializer
 
 
 def test_dict_plain():
@@ -17,7 +17,8 @@ def test_dict_plain():
             'created':      arrow.get(datetime.datetime.now()).replace(hours=-10),
             'last_updated': datetime.datetime.now()
             }
-        new = await serialize('Account', obj)
+        new = await Serializer.serialize('Account', obj)
+        print(new)
         plain = new['account'][0]
         assert len(new['keys']) is 1
         assert isinstance(new['account'], (list,))
@@ -34,7 +35,7 @@ def test_list_plain():
     async def _test_list_plain():
         obj = ['test', 'string',
                int, type, 12 * 5, datetime.datetime.now(), ]
-        new = await serialize('list-plain', obj)
+        new = await Serializer.serialize('list-plain', obj)
         print(f"\n\nlist-plain: {new}\n\n")
         assert isinstance(new, (dict,))
         assert isinstance(new['listPlain'], (list,))
@@ -59,14 +60,14 @@ def test_dict_nested():
             'nested_1':   {
                 'test':       'nested_str',
                 'password':   'nested_pw',
-                'date':       datetime.datetime.now(),
+                'date': arrow.now(),
                 'camel_case': 'nested_cc',
                 },
 
             'nested_2':   {
                 'test':           'nested2_str',
                 'password':       'nested2_pw',
-                'date':           datetime.datetime.now(),
+                'date': arrow.utcnow(),
                 'camel_case':     'nested2_cc',
                 'list':           [1, 2, 3, 'one', 'two', {
                     'key':        3,
@@ -87,7 +88,7 @@ def test_dict_nested():
                     }
                 }
             }
-        new = await serialize('dict-nested', obj)
+        new = await Serializer.serialize('dict-nested', obj)
         print()
         print('dict-nested', new['keys'])
         print()
@@ -121,7 +122,7 @@ def test_list_nested():
                 }
             }])
         #  keys: 3, nested1, testList
-        new = await serialize('list-nested', obj)
+        new = await Serializer.serialize('list-nested', obj)
         print()
         print('list-nested', new)
         print()

@@ -10,23 +10,25 @@ created: 21.09.17 09:51
 import logging
 
 import aiohttp
-from aiohttp import web
+
+from bonham.bonham_auth.decorators import authentication_required
+from bonham.bonham_chat.models import Chat
+from bonham.bonham_core.decorators import db_connection, load_data
+from bonham.bonham_core.web_sock import ChatSocket
 
 __all__ = ()
 
 logger = logging.getLogger(__name__)
 
 
-@token_data
+@authentication_required
+@load_data
+@db_connection
 async def chat_handler(request):
-    ws = web.WebSocketResponse()
-    sender_id = request['token_data']['id']
+    sender_id = request['access_token']['id']
     receiver_ids = request['data']['receiver_ids']  # must be list or tuple
-    await ws.prepare(request)
-    if sender_id not in request.app['websockets'].keys():
-        request.app['websockets'][sender_id] = {}
-    request.app['websockets'][sender_id]['-'.join(receiver_ids)] = ws
-
+    chat_room = Chat(id=request._match_info['room_id'])
+    ws = ChatSocket(request, chat_room)
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
             if msg.data == 'close':
@@ -37,6 +39,6 @@ async def chat_handler(request):
             print('ws connection closed with exception %s' %
                   ws.exception())
 
-        print('websocket connection closed')
+    print('websocket connection closed')
 
-        return ws
+    return ws

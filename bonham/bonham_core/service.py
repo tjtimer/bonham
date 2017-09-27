@@ -20,10 +20,9 @@ from aiohttp.signals import Signal
 from aiohttp.web_exceptions import HTTPFound, HTTPNotFound
 
 from bonham.bonham_core.channels import Channel
-from bonham.bonham_core.db import ServiceDb
+from bonham.bonham_core.db import Db
 from bonham.bonham_core.exceptions import RequestDenied
 from bonham.bonham_core.helper import load_yaml_conf
-from bonham.bonham_core.router import Router
 from bonham.settings import (
     CONF_DIR, DEBUG, HOST, PORT, SERVICE_NAME,
     TEMPLATES_DIR
@@ -69,10 +68,9 @@ class Service(web.Application):
             handler_args={'name': SERVICE_NAME},
             loop=kwargs.pop('loop', asyncio.get_event_loop()),
             logger=logger,
-            middlewares=(self.error_middleware,),
-            router=Router())
+            middlewares=(self.error_middleware,))
 
-        self._core = kwargs.pop('core', (ServiceDb(), self._router))
+        self._core = kwargs.pop('core', (Db(),))
         self._components = kwargs.pop('components', [])
         self._handler = kwargs.pop('handler', None)
         self._server = None
@@ -133,7 +131,7 @@ class Service(web.Application):
             component.setup(self) for component in components
             ))
 
-    async def register_channel(self, name: str):
+    async def create_channel(self, name: str):
         """create and register channels"""
         self.channels[name] = Channel()
         return self.channels[name]

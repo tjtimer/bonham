@@ -11,7 +11,7 @@ __all__ = ['Route', 'Router']
 Route = NamedTuple('Route', method=str, path=str, handler=callable, name=str)
 
 
-class Router(UrlDispatcher, Component):
+class Router(Component, UrlDispatcher):
     r"""Router"""
 
     def __init__(self):

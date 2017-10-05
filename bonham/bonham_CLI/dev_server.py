@@ -183,7 +183,7 @@ class DevServer:
         for task in asyncio.Task.all_tasks():
             if not task.cancelled():
                 print(f"\ncancelling {task}")
-                self._loop.call_soon_threadsafe(task.cancel())
+                task.cancel()
                 if task._state != 'FINISHED':
                     task.set_exception(asyncio.CancelledError())
                     print(f"task exception set.\n")

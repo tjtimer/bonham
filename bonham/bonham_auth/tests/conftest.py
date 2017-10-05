@@ -1,12 +1,12 @@
 # py.test fixtures
+import asyncio
 
 import pytest
-
-from bonham.utils import prepared_uvloop
 
 
 @pytest.fixture
 def my_loop():
-    loop = prepared_uvloop(debug=True)
+    loop = asyncio.get_event_loop()
+    loop.set_debug(True)
     return loop
 

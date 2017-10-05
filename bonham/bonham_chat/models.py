@@ -20,13 +20,13 @@ __all__ = ()
 logger = logging.getLogger(__name__)
 
 
-class Chat(Base, Model):
+class Chat(Model, Base):
     name = sa.Column(sa.String(60), primary_key=True)
     profile_ids = sa.Column(ScalarListType(), nullable=False)
 
 
-class Entry(Base, Model):
+class Entry(Model, Base):
     chat_id = ForeignKey('chat')
-    profile_id = ForeignKey('profile')
+    sender_id = ForeignKey('profile', ondelete='SET NULL')
     message = sa.Column(sa.Text, nullable=True)
     message_vector = sa.Column(TSVectorType)

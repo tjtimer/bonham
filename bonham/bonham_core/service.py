@@ -20,12 +20,10 @@ from aiohttp.signals import Signal
 from aiohttp.web_exceptions import HTTPFound, HTTPNotFound
 
 from bonham.bonham_core.channels import Channel
-from bonham.bonham_core.db import Db
 from bonham.bonham_core.exceptions import RequestDenied
-from bonham.bonham_core.helper import load_yaml_conf
+from bonham.bonham_core.helper import BLoop, load_yaml_conf
 from bonham.settings import (
-    CONF_DIR, DEBUG, HOST, PORT, SERVICE_NAME,
-    TEMPLATES_DIR
+    CONF_DIR, DEBUG, HOST, PORT, TEMPLATES_DIR
     )
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -48,64 +46,48 @@ class Service(web.Application):
     all other obligatory tasks to its parents.
 
     Usage:
-        '''python
-        class MyService(Service):
-            def __init__(self, *args, **kwargs):
-                super().__init__(**kwargs)
+    .. code-block:: python
 
+        def run():
+            service = Service('/path/to/config-file.yaml')
+            service.run()
 
         if __name__ == '__main__':
-            my_service = MyService()
-            my_service.run()
+            run()
 
-        '''
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, conf_path, **kwargs):
+        self.conf = load_yaml_conf(conf_path)
+        print(f"Service.__init__:")
+        print(f"\tconf: {self.conf}")
         super().__init__(
-            client_max_size=4096 ** 2,
-            debug=DEBUG,
-            handler_args={'name': SERVICE_NAME},
-            loop=kwargs.pop('loop', asyncio.get_event_loop()),
-            logger=logger,
+            client_max_size=self.conf.pop(
+                'client_max_size', 1024 ** 2
+                ),
+            logger=self.conf.pop('logger', logger),
+            loop=BLoop(debug=self.conf['log_level']),
             middlewares=(self.error_middleware,))
-
-        self._core = kwargs.pop('core', (Db(),))
-        self._components = kwargs.pop('components', [])
-        self._handler = kwargs.pop('handler', None)
+        self._services = {name: service['class'](service['config']) for
+                          name, service in self.conf['services']}
+        self._handler = self.conf.pop('handler', None)
         self._server = None
+        self._tasks = None
         self._is_running = asyncio.Event()
         self.channels = {}
         self.websockets = {}
+        print(f"server: self {vars(self)}")
 
-        if len(self._core):
-            self._loop.run_until_complete(self.setup(self._core))
-        if len(self._components):
-            self._loop.run_until_complete(self.setup(self._components))
-        if len(self.channels.keys()):
-            self.channel_tasks = asyncio.ensure_future(
-                asyncio.gather(*(channel.open() for channel in
-                                 self.channels.values()))
-                )
+        if len(self.conf['core']):
+            self.loop.run_until_complete(self.setup(self.conf['core']))
+        if len(self.conf['components']):
+            self.loop.run_until_complete(self.setup(self.conf['components']))
 
         # init template render engine
         aiohttp_jinja2.setup(
             self,
-            loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
-            app_key=f"{SERVICE_NAME}_jinja2_environment"
+            loader=jinja2.FileSystemLoader(TEMPLATES_DIR)
             )
-        """
-        # TODO: swagger setup will be replaced.
-        setup_swagger(
-                self,
-                swagger_url='/docs',
-                api_base_url='/',
-                description=f"{SERVICE_NAME} API definition",
-                api_version='0.0.1dev',
-                title=f"{SERVICE_NAME} API",
-                contact=f"Tim \"tjtimer\" Jedro - tjtimer@gmail.com"
-                )
-        """
 
     @property
     def name(self):
@@ -127,8 +109,10 @@ class Service(web.Application):
         As components should not have initial dependencies to each other
         they can be setup in parallel.
         """
+        print(f"server setup:")
+        print(f"\tcomponents: {components}")
         await asyncio.gather(*(
-            component.setup(self) for component in components
+            component(self) for component in components
             ))
 
     async def create_channel(self, name: str):
@@ -153,7 +137,7 @@ class Service(web.Application):
             )
         self._is_running.clear()
 
-        await asyncio.gather(*(task.join() for task in self.channel_tasks))
+        await asyncio.gather(*(task.join() for task in self._tasks))
         self.channels.clear()
         await asyncio.gather(*(
             component.shutdown(self) for component in self._components

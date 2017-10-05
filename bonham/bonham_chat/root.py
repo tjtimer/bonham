@@ -21,13 +21,14 @@ class Chat(Component):
     handles multiple websockets to provide chat capability.
     """
 
-    def __init__(self, *,
+    def __init__(self,
+                 service, *,
                  max_msg_size=2048 ** 2):
-        super().__init__()
         self.max_msg_size = max_msg_size
+        super().__init__(service)
 
-    async def setup(self, service):
+    async def setup(self):
         pass
 
-    async def shutdown(self, service):
+    async def shutdown(self):
         pass

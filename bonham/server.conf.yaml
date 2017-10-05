@@ -1,0 +1,9 @@
+version: 0.0.1dev
+name: "tjtimer.com"
+services:
+  auth:
+    root: !!python/module:bonham.bonham_auth.root
+    config:
+      host: 'tjtimer.dev'
+      ports: (9090,)
+

@@ -9,6 +9,8 @@ os.environ['VIRTUAL_ENV'] = '/var/www/tjtimer.com/server/venv/tjtimer-com'
 DEBUG = socket.gethostname() in ls.DEV_MACHINE
 MAX_PROCESSES = len(os.sched_getaffinity(0)) * 2 + 1
 
+SERVICE_NAME = "tjtimer.com"
+
 if DEBUG:
     HOST = 'tjtimer.dev'
     PORT = 9090
@@ -43,7 +45,6 @@ else:
     # log level
     LOG_LEVEL = logging.INFO
 
-SERVICE_NAME = "tjtimer.com"
 
 HTTPS = True
 BASE_DIR = opj('/var/www', SERVICE_NAME)

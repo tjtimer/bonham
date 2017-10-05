@@ -9,8 +9,6 @@ from pathlib import Path
 
 import uvloop
 
-from bonham import settings
-from bonham.bonham_auth.root import Auth
 from bonham.bonham_core.helper import load_yaml_conf
 from bonham.bonham_core.service import Service
 from bonham.settings import CONF_DIR
@@ -31,8 +29,7 @@ def run():
     Install your components.
     Run your service.
     """
-    service = Service(host=settings.HOST, port=settings.PORT)
-    service.install((Auth(),))
+    service = Service('/var/www/tjtimer.com/server/conf/server.conf.yaml')
     service.run()
 
 

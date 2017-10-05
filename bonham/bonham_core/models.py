@@ -8,7 +8,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy_utils import ArrowType, ChoiceType
 
 from bonham.bonham_core import db
-from bonham.bonham_core.b_types import PrivacyType
+from bonham.bonham_core.choicetypes import PrivacyType
 from bonham.bonham_core.helper import snake_case
 
 __all__ = ('Base', 'BaseModel', 'Model')
@@ -17,6 +17,13 @@ Base = declarative_base(metaclass=sqlamp.DeclarativeMeta)
 
 
 class BaseModel(object):
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        r"""Create tables and signals."""
+        # TODO: Signals
+        print(f"BaseModel:"
+              f"\n\tcls: {cls}"
+              f"\n\tdir: {dir(cls)}")
     """
         Parent class Models.
 
@@ -49,14 +56,6 @@ class BaseModel(object):
                 create, update, delete,
                 get, get_by_id
     """
-    required_fields = set()
-    read_only_fields = {
-        'id', 'created', 'last_updated', 'update_count'
-        }
-    public_data = {
-        'id', 'created', 'last_updated',
-        'update_count', 'privacy'
-        }
 
     @declared_attr
     def __tablename__(cls):
@@ -66,11 +65,6 @@ class BaseModel(object):
                    index=True, primary_key=True,
                    autoincrement=True, unique=True
                    )
-
-    @declared_attr
-    def privacy(self):
-        return sa.Column(ChoiceType(PrivacyType, impl=sa.Integer()),
-                         server_default='7')  # default is private
 
     def __init__(self, connection: asyncpg.Connection, **kwargs):
         assert isinstance(
@@ -97,14 +91,6 @@ class BaseModel(object):
             value = arrow.get(vars(self)[name]).for_json()
             return value
         return vars(self)[name]
-
-    @property
-    def table(self):
-        return self.__table__
-
-    @property
-    def columns(self):
-        return self.__table__.c.keys()
 
     async def create(self, *, data=None, **kwargs):
         assert self.id is None, 'id must be None!'
@@ -161,55 +147,6 @@ class BaseModel(object):
 
 
 class Model(BaseModel):
-    """
-        Parent class Models.
-
-        Usage:
-            Model definition:
-                class MyModel(Model, Base):
-                    # column declaration
-                    ...
-
-                    def __init__(self, connection, **kwargs):
-                        super().__init__(connection, **kwargs)
-                        ...
-
-            creating:
-                model = MyModel(connection, **data)
-                await model.create()
-
-            updating an existing entry:
-                entry = MyModel(connection [, **data])
-                await entry.update(data=dict(data) [, ref=<str: column_name>])
-
-                'ref' is optional and defaults to ('id',)
-
-        Models inheriting from Model will have
-
-            following columns:
-                id, privacy, created, last_updated
-
-            following methods:
-                create, update, delete,
-                get, get_by_id
-    """
-    required_fields = set()
-    read_only_fields = {
-        'id', 'created', 'last_updated', 'update_count'
-        }
-    public_data = {
-        'id', 'created', 'last_updated',
-        'update_count', 'privacy'
-        }
-
-    @declared_attr
-    def __tablename__(cls):
-        return snake_case(cls.__name__)
-
-    id = sa.Column(sa.Integer,
-                   index=True, primary_key=True,
-                   autoincrement=True, unique=True
-                   )
 
     @declared_attr
     def privacy(self):
@@ -239,6 +176,15 @@ class Model(BaseModel):
     def __init__(self, connection: asyncpg.Connection, **kwargs):
         super().__init__(connection, **kwargs)
 
+    class Meta:
+        required_fields = set()
+        read_only_fields = {
+            'id', 'created', 'last_updated', 'update_count'
+            }
+        public_data = {
+            'id', 'created', 'last_updated',
+            'update_count', 'privacy'
+            }
 
 class Content(Model):
     allows_comments = sa.Column(sa.Boolean, server_default="1")

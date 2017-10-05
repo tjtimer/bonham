@@ -49,17 +49,17 @@ class BLoop(uvloop.Loop):
                           _, context: dict
                           ) -> None:
         self.cancel_running_tasks()
-        self.stop()
 
     def keyboardinterrupt_handler(self, *args):
         print(f"keyboardinterrupt_handler called.")
         print(f"self: {self}")
         print(f"args: {args}")
         self.run_until_complete(self.shutdown_asyncgens())
+        self.stop()
 
 def load_yaml_conf(path: Path) -> dict:
-    with open(path, 'r') as f:
-        config = yaml.safe_load(f.read())
+    with open(path) as f:
+        config = yaml.load(f.read())
     return config
 
 

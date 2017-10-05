@@ -9,7 +9,7 @@ async def request_signal(handler):
     async def middleware_handler(request):
         await request.app.on_auth_request_started.send(request, handler)
         return await handler(request)
-        await service.on_auth_response_sent.send(request, handler)
+        await request.app.on_auth_response_sent.send(request, handler)
     return middleware_handler
 
 

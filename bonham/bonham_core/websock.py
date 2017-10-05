@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class ChatSocket(web.WebSocketResponse):
 
-    def __init__(self, request, sender_id, receiver_ids):
+    def __init__(self, request, chat):
         super().__init__()
         self._id = id(self)
         self._app = request.app

@@ -14,7 +14,7 @@ import aiohttp
 from bonham.bonham_auth.decorators import authentication_required
 from bonham.bonham_chat.models import Chat
 from bonham.bonham_core.decorators import db_connection, load_data
-from bonham.bonham_core.web_sock import ChatSocket
+from bonham.bonham_core.websock import ChatSocket
 
 __all__ = ()
 
@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 @load_data
 @db_connection
 async def chat_handler(request):
-    sender_id = request['access_token']['id']
-    receiver_ids = request['data']['receiver_ids']  # must be list or tuple
-    chat_room = Chat(id=request._match_info['room_id'])
+    chat_room = await Chat(
+        id=request._match_info['room_id']
+        ).get()
     ws = ChatSocket(request, chat_room)
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:

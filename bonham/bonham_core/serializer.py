@@ -4,7 +4,7 @@ from collections import Iterator
 import arrow
 import curio
 
-from bonham.bonham_core.b_types import PrivacyType
+from bonham.bonham_core.choicetypes import PrivacyType
 from .helper import camel_case
 
 __all__ = ['Serializer']

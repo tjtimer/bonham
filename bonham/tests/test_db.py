@@ -5,15 +5,12 @@ from datetime import timedelta
 import arrow
 import asyncpg
 import hypothesis.strategies as st
-from aiohttp import web
 from hypothesis import given
 from sqlalchemy import Table
 
 
-def test_setup_db():
-    loop = prepared_uvloop()
-    app = web.Application()
-    loop.run_until_complete(db.setup(app))
+def test_setup_db(app):
+    test_loop.run_until_complete(db.setup(app))
     assert 'db' in app.keys()
     assert isinstance(app['db'], asyncpg.pool.Pool)
 

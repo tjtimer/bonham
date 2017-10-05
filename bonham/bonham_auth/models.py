@@ -3,7 +3,7 @@ import sqlalchemy as sa
 from sqlalchemy import UniqueConstraint
 from sqlalchemy_utils import ChoiceType, JSONType, LocaleType, PasswordType
 
-from bonham.bonham_core.b_types import ClientStatusType
+from bonham.bonham_core.choicetypes import ClientStatusType
 from bonham.bonham_core.db import Base, ForeignKey
 from bonham.bonham_core.models import Model
 

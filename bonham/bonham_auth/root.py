@@ -26,7 +26,7 @@ from bonham.bonham_core.component import Component
 from bonham.bonham_core.db import create_tables
 from bonham.settings import SUPERUSERS
 
-__all__ = ('Auth', 'authentication_required')
+__all__ = ('Auth')
 
 ROUTES = (
     ('POST', r'sign-up/', sign_up, 'sign-up'),
@@ -47,14 +47,14 @@ DEFAULT_ROLES = {
 class Auth(Component):
     r"""Authentication and Authorisation Component"""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, service):
         self._tables = create_tables(
             models=(
                 Account, Role, AccountRole,
                 Permission, Client
                 )
             )
+        super().__init__(service)
 
     @staticmethod
     async def setup_superusers(service):
@@ -71,7 +71,7 @@ class Auth(Component):
         service.logger.debug(f"creating super users")
         service.logger.debug(f"service {vars(service)}")
         service['superusers'] = dict()
-        async with service.db.acquire() as connection:
+        async with service.db.pool.acquire() as connection:
             account = Account(connection)
             superusers = list(await account.get(
                 many=True,

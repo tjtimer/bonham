@@ -9,50 +9,44 @@ created: 21.09.17 09:59
 import asyncio
 import logging
 from abc import abstractmethod
-from functools import wraps
 
-from bonham.bonham_core.helper import snake_case
+from aiohttp import web
 
 __all__ = ()
 
 logger = logging.getLogger(__name__)
 
-
-def wrap_setup(setup):
-    @wraps(setup)
-    async def wrapper(instance, service, *args, **kwargs):
-        await setup(instance, service, *args, **kwargs)
-        setattr(service, snake_case(instance.__class__.__qualname__), instance)
-
-    return wrapper
+available_components = {}
 
 
-class ComponentMeta(type):
-    r""""""
-
-    def __new__(cls, name, bases, namespace, **kwargs):
-        r"""set component as attribute on service"""
-        namespace['setup'] = wrap_setup(namespace['setup'])
-        comp = type.__new__(cls, name, bases, dict(namespace))
-        return comp
-
-
-class Component(metaclass=ComponentMeta):
+class Component(web.Application):
     """
     Abstract base class for a service component,
     e.g. Authorisation/Authentication, Contact, Blog...
     """
-    __slots__ = ('_ready', '_loop')
 
-    def __init__(self):
-        self._loop = asyncio.get_event_loop()
-        self._ready = asyncio.Event()
+    __slots__ = ()
+
+    def __init_subclass__(cls, **kwargs):
+        print(f"Component.__init_subclass__")
+        print(f"cls: {cls}")
+        print(f"kwargs")
+        available_components[cls.__name__] = cls
+
+    def __init__(self, **kwargs):
+        print(f"Component.__init__")
+        print(f"self: {self}")
+        print(f"service: {service}")
+        super().__init__(**kwargs)
+        self.handler = None
+        self.ready = asyncio.Event()
+        self.loop.run_until_complete(self.setup())
 
     @abstractmethod
-    async def setup(self, service):
+    async def setup(self):
         r"""setup your component"""
 
     @abstractmethod
-    async def shutdown(self, service):
+    async def shutdown(self):
         """shutdown component"""
         pass

@@ -40,8 +40,9 @@ def authentication_required(handler):
     @wraps(handler)
     async def wrapper(request):
         try:
-            request['access_token'] = await verify_token(request.headers[
-                                                             'access'])
+            request['access_token'] = await verify_token(
+                request.headers['access']
+                )
             return await handler(request)
         except jwt.ExpiredSignatureError as ese:
             raise RequestDenied(f"{ese} -> access token expired")

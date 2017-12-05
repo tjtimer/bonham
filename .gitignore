@@ -1,12 +1,5 @@
-### Python template
-# Byte-compiled / optimized / DLL files
-# C extensions
-# Distribution / packaging
+.cache/
 .hypothesis/
 .idea/
-/logs/
-/bonham.egg-info/
-/bonham/local_settings.py
-/.cache/
-public/
-rsa/
+bonham.egg-info/
+venv/

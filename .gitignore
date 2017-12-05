@@ -4,4 +4,4 @@
 .tox/
 bonham.egg-info/
 venv/
-/docs/build/
+/docs/_build/

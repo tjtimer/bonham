@@ -1,5 +1,7 @@
 .cache/
 .hypothesis/
 .idea/
+.tox/
 bonham.egg-info/
 venv/
+/docs/build/

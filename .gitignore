@@ -5,3 +5,4 @@
 bonham.egg-info/
 venv/
 /docs/_build/
+/tpl/bonham-k8s.yaml

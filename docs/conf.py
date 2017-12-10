@@ -17,10 +17,18 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
+import os
 import sys
-sys.path.insert(0, '/var/www/projects/dev/bonham')
 
+root_dir = os.path.dirname(os.path.abspath('.'))
+
+site_packages_dir = os.path.join(
+    root_dir, 'venv', 'lib', 'python3.6', 'site-packages'
+    )
+
+sys.executable = os.path.join(root_dir, 'venv', 'bin', 'python3')
+sys.path.insert(0, root_dir)
+sys.path.insert(1, site_packages_dir)
 
 # -- General configuration ------------------------------------------------
 
@@ -31,9 +39,11 @@ sys.path.insert(0, '/var/www/projects/dev/bonham')
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc',
+extensions = [
+    'sphinx.ext.autodoc',
     'sphinx.ext.todo',
-    'sphinx.ext.viewcode']
+    'sphinx.ext.viewcode'
+    ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -91,7 +101,13 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'github_user': 'tjtimer',
+    'github_repo': 'bonham',
+    'github_button': True,
+    'github_banner': True,
+    'show_related': True
+    }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

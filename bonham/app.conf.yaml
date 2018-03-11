@@ -2,24 +2,46 @@ name: tjtimer.dev
 debug: True
 debug_machines:
   - tjs-roadrunner
-replica: 2
-ssl: True
-root_dir: /var/www/tjtimer.dev  # ignored if application_root and public_root given as absolute paths
-public_root: public/  # assumed to be under root_dir if not starts with an '/'
-application_root: application/  # assumed to be under root_dir if not starts with an '/'
-apps_dir: apps/  # assumed to be under application_root if not starts with an '/'
-blacklist_apps:
-template_loader: system
-template_dir: templates/
+replica: 2  # should not be more than number of available cores
+ssl: True  # 1, true, y and yes (all case insensitive) will evaluate to True
+log_config: logging.conf.yaml
+
+enable_auth:  # to disable auth remove or place a # at the beginning of this line
+local_conf:  local.conf.yaml
+
+# directories
+root_dir: /var/www/tjtimer.dev  # must be an absolute path
+public_root: public/  # assumed to be in root_dir if not starts with an '/'
+application_root: application/  # assumed to be in root_dir if not starts with an '/'
+apps_dir: apps/  # must be in application_root
+template_dir: templates/ # assumed to be in application_root if not starts with an '/'
 media_dir: media/  # must be under public_root
-media_url: media/
 static_dir: static/  # must be under public_root
-static_url: static/
-databases:
-  - postgresql
-#  - orientdb
 
+template_loader: system  # system or package
 
-
-
-
+# following should be placed in a local config file
+# databases:
+#   postgresql:
+#     name: db-name
+#     user: db-user
+#     port: postresql-port
+#   orientdb:
+#     name: db-name
+#     user: db-user
+#     port: orientdb-port
+# 
+# email:
+#   server:
+#     host: localhost
+#     port: 3030
+#   smtp:
+#     host: smtp.googlemail.com
+#     port: 465
+#   imap:
+#     host: imap.gmail.com
+#     port: 993
+#   pop3:
+#     host: pop3.gmail.com'
+#     port: 995
+# 

@@ -6,15 +6,15 @@ The application entry point.
 import argparse
 import asyncio
 import importlib
-
 import logging.config
 import os
 import ssl
 from _ssl import PROTOCOL_TLSv1_2
 
 import aiohttp_jinja2
-import jinja2
 from aiohttp import web
+
+from bonham.core.config import ApplicationConfig, load_config
 
 
 try:
@@ -23,39 +23,21 @@ try:
 except ImportError:
     pass
 
-from bonham.core import pg_db
-from bonham.core.utils import load_yaml_conf
-
 __all__ = ['run']
 
 parser = argparse.ArgumentParser(description='Start your Bonham app.')
 parser.add_argument('--config', '-c', help='path to your config file')
 
 
-def load_config(path: str)->dict:
-    app_conf = os.path.join(path, 'app.conf.yaml')
-    local_conf = os.path.join(path, 'local.conf.yaml')
-    config = load_yaml_conf(app_conf)
-    config.update(**load_yaml_conf(local_conf))
-    return config
-
-
-def init_logger(path: str):
-    logger_config = load_yaml_conf(path)
-    logging.config.dictConfig(logger_config)
-    logger = logging.getLogger(__file__)
-    return logger
+def init_logging_conf(config: str or dict):
+    if isinstance(config, str):
+        config = load_config(config)
+    logging.config.dictConfig(config)
 
 
 def import_apps(app_names: list or tuple):
     for name in app_names:
         yield name, importlib.import_module(f'.app', f'bonham.apps.{name}')
-
-
-def bind_models(models, engine):
-    for model in models:
-        model.metadata.bind = engine
-        model.metadata.create_all()
 
 
 routes = web.RouteTableDef()
@@ -88,15 +70,11 @@ def get_ssl_context(*,
 
 def run(config_path: str):
     root = web.Application()
-    root['config'] = load_config(config_path)
-    root.logger = init_logger(
-        os.path.join(
-            root['config']['server_root'],
-            root['config']['logging_conf']
-        ))
-    pg_alchemy = pg_db.get_alchemy_engine(root['config']['dsn'])
-    for name, _app_ in import_apps(root['config']['installed_apps']):
-        bind_models(getattr(_app_, 'models', []), pg_alchemy)
+    root['config'] = ApplicationConfig(config_path)
+    os.chdir(root['config']['directories']['application'])
+    init_logging_conf(root['config']['log'])
+    root.log = logging.getLogger(root['config']['name'])
+    for name, _app_ in import_apps(root['config']['directories']['apps']):
         app = web.Application()
         app.router.add_routes(getattr(_app_, 'routes', []))
         app.middlewares.append(getattr(_app_, 'middlewares', []))

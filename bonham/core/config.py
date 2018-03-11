@@ -3,11 +3,12 @@
  config
 """
 import os
+import socket
 
 from bonham.core.utils import opj
 
 
-__all__ = ('load_config', 'get_config')
+__all__ = ('load_config', 'ApplicationConfig')
 
 def load_config(path: str) -> dict:
     f_type = path.split('.')[-1].lower()
@@ -22,11 +23,11 @@ def load_config(path: str) -> dict:
             raise TypeError('Config file must be yaml or json.')
 
 def parse_directories(config):
-    root_directory = config.get('root_directory', os.getcwd())
-    application = config.get('application_root','application')
+    root_directory = config.pop('root_directory', os.getcwd())
+    application = config.pop('application_root','application')
     if not application.startswith('/'):
         application = opj(root_directory, application)
-    public = config.get('public_root', 'public')
+    public = config.pop('public_root', 'public')
     if not public.startswith('/'):
         public = opj(root_directory, public)
     if config.get('template_loader', 'system') == 'system':
@@ -35,20 +36,51 @@ def parse_directories(config):
         templates = 'templates'
     directories = dict(
         root=root_directory,
-        application=application,
         public=public,
+        static = opj(public, config.pop('static_dir', 'static')),
+        media = opj(public, config.pop('media_dir', 'media')),
+        application=application,
         templates=templates,
         certificates = opj(application, '.certificates'),
         secrets = opj(application, '.secrets'),
         sockets = opj(application, '.scks'),
         conf = opj(application, 'conf'),
-        logs = opj(application, 'logs'),
-        tmp = opj(application, 'tmp'),
-        static = opj(public, config.get('static_dir', 'static')),
-        media = opj(public, config.get('media_dir', 'media'))
+        log = opj(application, 'log'),
+        tmp = opj(application, 'tmp')
     )
     return directories
 
-def get_config(conf_path: str):
-    _conf = load_config(conf_path)
-    _next = parse_directories(_conf)
+class ApplicationConfig:
+    __slots__ = (
+        'name', 'debug', 'log', 'directories', 'ssl',
+        'template_loader', 'replica', 'databases', 'auth_enabled'
+    )
+
+    def __init__(self, conf_path: str):
+        raw_conf = load_config(conf_path)
+        debug = raw_conf.pop('debug', 'False').lower() in ['1', 'true', 'yes']
+        debug_machines = raw_conf.pop('local_machines', None)
+        if not debug_machines is None:
+            debug = debug and socket.gethostname() in debug_machines
+        self.name = raw_conf.get('name', 'application')
+        self.debug = debug
+        self.directories = parse_directories(raw_conf)
+        self.log = opj(
+            self.directories['conf'],
+            raw_conf.get('log_config', 'logging.conf.yaml'))
+        self.ssl = raw_conf['ssl'].lower() in ['1', 'true', 'y', 'yes']
+        self.databases = raw_conf.get('databases', None)
+        self.replica = raw_conf.get('replica', 1)
+        self.template_loader = raw_conf.get('template_loader', 'system')
+        self.auth_enabled = True if 'enable_auth' in raw_conf.keys() else False
+        local_conf = raw_conf.get('local_conf', None)
+        if local_conf is not None:
+            local_conf = load_config(
+                opj(self.directories['conf'], local_conf)
+            )
+            for k, v in local_conf:
+                setattr(self, k, v)
+
+
+    def __getitem__(self, item):
+        return self.__getattribute__(item)

@@ -16,6 +16,11 @@ Base = declarative_base(metaclass=sqlamp.DeclarativeMeta)
 
 
 
+def bind_models(models, engine):
+    for model in models:
+        model.metadata.bind = engine
+        model.metadata.create_all()
+
 class Connect(object):
     """
         Parent class for all Models that connect two Models.

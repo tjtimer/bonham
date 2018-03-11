@@ -58,28 +58,27 @@ class ApplicationConfig:
 
     def __init__(self, conf_path: str):
         raw_conf = load_config(conf_path)
-        debug = raw_conf.pop('debug', 'False').lower() in ['1', 'true', 'yes']
-        debug_machines = raw_conf.pop('local_machines', None)
-        if not debug_machines is None:
-            debug = debug and socket.gethostname() in debug_machines
-        self.name = raw_conf.get('name', 'application')
+        debug = raw_conf.pop('debug', 'False').lower() in ['1', 'true', 'y', 'yes']
+        debug_env = raw_conf.pop('debug_env', None)
+        if debug_env is not None:
+            debug = debug and socket.gethostname() in debug_env
         self.debug = debug
+        self.name = raw_conf.get('name', 'application')
         self.directories = parse_directories(raw_conf)
-        self.log = opj(
-            self.directories['conf'],
-            raw_conf.get('log_config', 'logging.conf.yaml'))
-        self.ssl = raw_conf['ssl'].lower() in ['1', 'true', 'y', 'yes']
+        self.log = raw_conf.get('log_config', None)
+        self.ssl = raw_conf.get('ssl', False) is True
         self.databases = raw_conf.get('databases', None)
         self.replica = raw_conf.get('replica', 1)
         self.template_loader = raw_conf.get('template_loader', 'system')
-        self.auth_enabled = True if 'enable_auth' in raw_conf.keys() else False
-        local_conf = raw_conf.get('local_conf', None)
-        if local_conf is not None:
-            local_conf = load_config(
-                opj(self.directories['conf'], local_conf)
-            )
-            for k, v in local_conf:
-                setattr(self, k, v)
+        self.auth_enabled = raw_conf.get('enable_auth') is True
+
+        local_conf = raw_conf.get('local_conf', False)
+        if local_conf is not False:
+            if not local_conf.startswith('/'):
+                local_conf = opj(self.directories['conf'], local_conf)
+            local_conf = load_config(local_conf)
+            self.__dict__.update(**local_conf)
+
 
 
     def __getitem__(self, item):

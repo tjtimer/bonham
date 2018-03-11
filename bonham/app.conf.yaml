@@ -1,47 +1,109 @@
+# name of your application, e.g. your domain name
 name: tjtimer.dev
-debug: True
-debug_machines:
-  - tjs-roadrunner
-replica: 2  # should not be more than number of available cores
-ssl: True  # 1, true, y and yes (all case insensitive) will evaluate to True
-log_config: logging.conf.yaml
+#
+# Set replica to the number of app instances
+# that should be running.
+# Each instance will run in its own process.
+# Should not be more than number of available cores.
+replica: 2
 
-enable_auth:  # to disable auth remove or place a # at the beginning of this line
+# on or true to enable, off or false to disable
+debug: on
+ssl: on
+auth: off
+
+root_dir: /var/www/tjtimer.dev
+#
+# assuming this directory structure
+# <root_dir>/
+#     public/
+#         static/     -> having your css and javascript files and
+#         media/      -> having uploaded media like pictures, music or video files
+#     application/
+#         apps/       -> having your apps / services / request handlers
+#         conf/       -> having this and other config files
+#         templates/  -> having your jinja2 templates
+#         .tmp/       -> having temporary files
+#         .secrets/   -> having your secrets files like database passwords
+#         .certs/     -> having your certificates, private and public keys
+#         .scks/      -> having your app sockets
+#
+# none of the following has to be given.
+# Given directory names with a slash / at the beginning
+# are are treated like absolute paths.
+#
+# public_root: public/
+# application_root: application/
+# apps_dir: apps/
+# template_dir: templates/
+# media_dir: media/
+# static_dir: static/
+# conf_dir: conf/
+# temp_dir: .tmp/
+# sockets_dir: .scks/
+# secrets_dir: .secrets/
+# certificates_dir: .certs/
+#
+
+#
+# additional config files
+#
+# logging configuration
+# type can be either 'dict' or 'listen'
+# if type is dict than a path or filename has to be given
+# if set to listen a port must be set too.
+# see examples below and read the python docs at
+# https://docs.python.org/3/library/logging.config.html
+#
+# logging_conf:
+#   type: listen
+#   port: 123456
+#
+logging_conf:
+  type: dict
+  path: logging.conf.yaml
+#
+#
+# local_conf should be used to overwrite settings from this file.
+# or add other settings. see examples below
+#
 local_conf:  local.conf.yaml
+#
 
-# directories
-root_dir: /var/www/tjtimer.dev  # must be an absolute path
-public_root: public/  # assumed to be in root_dir if not starts with an '/'
-application_root: application/  # assumed to be in root_dir if not starts with an '/'
-apps_dir: apps/  # must be in application_root
-template_dir: templates/ # assumed to be in application_root if not starts with an '/'
-media_dir: media/  # must be under public_root
-static_dir: static/  # must be under public_root
+# set your desired jinja2 template loader
+# can be set to 'system' or 'package'
+# or 'of'/'false' to not use the jinja2 template engine.
+# default is 'system'
+# template_loader: system  # system or package
 
-template_loader: system  # system or package
-
-# following should be placed in a local config file
+# Following settings are examples only and
+# could be placed in a 'local' config file.
+#
+# debug_env: <my-machine>
+#
 # databases:
 #   postgresql:
 #     name: db-name
 #     user: db-user
 #     port: postresql-port
+#     password: super-secure
 #   orientdb:
 #     name: db-name
 #     user: db-user
 #     port: orientdb-port
+#     password: evenMoreSecure!
 # 
 # email:
 #   server:
 #     host: localhost
 #     port: 3030
 #   smtp:
-#     host: smtp.googlemail.com
+#     host: smtp.noodlemail.com
 #     port: 465
 #   imap:
-#     host: imap.gmail.com
+#     host: imap.nanoo.com
 #     port: 993
 #   pop3:
-#     host: pop3.gmail.com'
+#     host: pop3.nimx.net
 #     port: 995
-# 
+#

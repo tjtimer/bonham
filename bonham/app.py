@@ -68,12 +68,12 @@ def get_ssl_context(*,
     ssl_context.set_ciphers(kwargs.pop('ciphers', get_default()))
     return ssl_context
 
-def run(config_path: str):
+def prepare_app(config_path: str):
     root = web.Application()
     root['config'] = ApplicationConfig(config_path)
     os.chdir(root['config']['directories']['application'])
-    init_logging_conf(root['config']['log'])
-    root.log = logging.getLogger(root['config']['name'])
+    if root['config']['log'] is not None:
+        init_logging_conf(root['config']['log'])
     for name, _app_ in import_apps(root['config']['directories']['apps']):
         app = web.Application()
         app.router.add_routes(getattr(_app_, 'routes', []))
@@ -83,16 +83,21 @@ def run(config_path: str):
         root.on_shutdown.append(getattr(_app_, 'on_shutdown', []))
         root.on_cleanup.append(getattr(_app_, 'on_cleanup', []))
         root.add_subapp(f"/{name}", app)
-    init_template_engine(root)
+    if root['config']['template_loader'] is not False:
+        init_template_engine(root)
     root.router.add_routes(routes)
+    if root['config']['ssl'] is False:
+        root['ssl_context'] = None
+    else: root['ssl_context'] = get_ssl_context()
+    return root
+
+def run(app):
     loop = asyncio.get_event_loop()
-    runner = web.AppRunner(root)
+    runner = web.AppRunner(app)
     loop.run_until_complete(runner.setup())
     site = web.UnixSite(
-        runner, path=os.path.join(
-            root['config']['server_root'],
-            root['config']['sock_dir']),
-        ssl_context=get_ssl_context())
+        runner, path=app['config']['directories']['sockets'],
+        ssl_context=app['config']['ssl'])
     loop.run_until_complete(site.start())
     try:
         loop.run_forever()
@@ -107,4 +112,5 @@ def run(config_path: str):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    run(args.config)
+    app = prepare_app(args.config)
+    run(app)

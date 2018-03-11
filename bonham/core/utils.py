@@ -1,50 +1,38 @@
+import os
 import random
-from pathlib import Path
-
-import yaml
-import random
-from pathlib import Path
-
-import yaml
 
 
 __all__ = (
-    'load_yaml_conf',
-    'normalize_title',
+    'opj',
+    'capitalize_title',
     'camel_case',
-    'kebap_case',
+    'kebab_case',
     'snake_case',
     'random_rgb'
     )
 
+opj = os.path.join
 
-def load_yaml_conf(path: str or Path) -> dict:
-    with open(path, 'r') as f:
-        config = yaml.safe_load(f.read())
-    return config
-
-
-def normalize_title(value: str) -> str:
-    return ' '.join(part.capitalize() for part in value.split(' '))
+def capitalize_title(text: str) -> str:
+    return ' '.join(part.capitalize() for part in text.split(' '))
 
 
-def camel_case(value: str) -> str:
-    v_list = value.replace('-', '_').split('_')
+def camel_case(word: str) -> str:
+    v_list = word.replace('-', '_').split('_')
     if len(v_list) == 1:
-        return value.lower()
+        return word.lower()
     camel_cased = v_list[0].lower()
     camel_cased += ''.join(part.capitalize() for part in v_list[1:])
     return camel_cased
 
 
-def kebap_case(word: str) -> str:
-    kebap_cased = word[0].lower()
+def kebab_case(word: str) -> str:
+    kebab_cased = word[0].lower()
     for letter in word[1:]:
-        replacement = ''
         if ord(letter) in range(65, 91):  #
-            replacement += f"-{letter.lower()}"
-        kebap_cased += replacement
-    return kebap_cased
+            letter = f"-{letter.lower()}"
+        kebab_cased += letter
+    return kebab_cased.replace('_', '-')
 
 
 def snake_case(word: str) -> str:
@@ -53,7 +41,7 @@ def snake_case(word: str) -> str:
         if ord(letter) in range(65, 91):
             letter = f"_{letter.lower()}"
         snake_cased += letter
-    return snake_cased
+    return snake_cased.replace('-', '_')
 
 
 async def random_rgb() -> str:

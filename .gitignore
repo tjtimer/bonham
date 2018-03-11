@@ -4,9 +4,8 @@
 .tox/
 .vscode/
 bonham.egg-info/
-bonham/app.conf.yaml
 bonham/local.conf.yaml
-bonham/logging.conf.yaml
 bonham/settings.py
 venv/
-/docs/_build/
+docs/
+**/__pycache__

@@ -1,8 +1,8 @@
 """
 setup
 """
-from bonham.core.utils import AppConf
+from bonham.core.config import ConfigParser
 
 
-def setup_app(config: AppConf=None):
+def setup_server(config: ConfigParser=None):
     pass

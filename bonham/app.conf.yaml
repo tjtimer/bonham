@@ -1,0 +1,25 @@
+name: tjtimer.dev
+debug: True
+debug_machines:
+  - tjs-roadrunner
+replica: 2
+ssl: True
+root_dir: /var/www/tjtimer.dev  # ignored if application_root and public_root given as absolute paths
+public_root: public/  # assumed to be under root_dir if not starts with an '/'
+application_root: application/  # assumed to be under root_dir if not starts with an '/'
+apps_dir: apps/  # assumed to be under application_root if not starts with an '/'
+blacklist_apps:
+template_loader: system
+template_dir: templates/
+media_dir: media/  # must be under public_root
+media_url: media/
+static_dir: static/  # must be under public_root
+static_url: static/
+databases:
+  - postgresql
+#  - orientdb
+
+
+
+
+

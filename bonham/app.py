@@ -67,11 +67,8 @@ async def index(request):
 def init_template_engine(app):
     aiohttp_jinja2.setup(
         app,
-        loader=jinja2.FileSystemLoader(
-            os.path.join(
-                app['config']['server_root'],
-                app['config']['template_dir']
-            )
+        loader=app['template_loader'](
+            app['templates_path']
         )
     )
 

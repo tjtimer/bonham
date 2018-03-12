@@ -19,8 +19,12 @@ def load_config(path: str) -> dict:
         elif f_type == 'json':
             import json
             return json.loads(f.read())
+        elif f_type in ['cfg', 'ini']:
+            import configparser
+            config = configparser.ConfigParser()
+            return config.read_file(open(path))
         else:
-            raise TypeError('Config file must be yaml or json.')
+            raise TypeError('Config file must be yaml, json, cfg or ini.')
 
 def parse_directories(config):
     root_directory = config.pop('root_directory', os.getcwd())

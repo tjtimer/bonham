@@ -30,17 +30,18 @@ def parse_directories(config):
     public = config.pop('public_root', 'public')
     if not public.startswith('/'):
         public = opj(root_directory, public)
+    templates = config.get('templates_dir', 'templates')
     if config.get('template_loader', 'system') == 'system':
-        templates = opj(application, 'templates')
-    else:
-        templates = 'templates'
+        if not templates.startswith('/'):
+            templates = opj(application, templates)
     directories = dict(
         root=root_directory,
         public=public,
-        static = opj(public, config.pop('static_dir', 'static')),
-        media = opj(public, config.pop('media_dir', 'media')),
         application=application,
         templates=templates,
+        apps=config.get('apps_dir', 'apps'),
+        static = opj(public, config.pop('static_dir', 'static')),
+        media = opj(public, config.pop('media_dir', 'media')),
         certificates = opj(application, '.certificates'),
         secrets = opj(application, '.secrets'),
         sockets = opj(application, '.scks'),
@@ -58,19 +59,26 @@ class ApplicationConfig:
 
     def __init__(self, conf_path: str):
         raw_conf = load_config(conf_path)
-        debug = raw_conf.pop('debug', 'False').lower() in ['1', 'true', 'y', 'yes']
+        debug = raw_conf.pop('debug', False)
         debug_env = raw_conf.pop('debug_env', None)
         if debug_env is not None:
             debug = debug and socket.gethostname() in debug_env
         self.debug = debug
-        self.name = raw_conf.get('name', 'application')
+        self.name = raw_conf.pop('name', 'application')
         self.directories = parse_directories(raw_conf)
-        self.log = raw_conf.get('log_config', None)
-        self.ssl = raw_conf.get('ssl', False) is True
-        self.databases = raw_conf.get('databases', None)
-        self.replica = raw_conf.get('replica', 1)
-        self.template_loader = raw_conf.get('template_loader', 'system')
-        self.auth_enabled = raw_conf.get('enable_auth') is True
+        log = raw_conf.pop('logging_config', None)
+        if isinstance(log, dict):
+            if 'path' in log.keys() and not log['path'].startswith('/'):
+                log['path'] = opj(
+                    self.directories['conf'],
+                    log['path'])
+        elif isinstance(log, str) and not log.startswith('/'):
+            log = opj(self.directories['conf'], log)
+        self.log = log
+        self.ssl = raw_conf.pop('ssl', False)
+        self.replica = raw_conf.pop('replica', 1)
+        self.template_loader = raw_conf.pop('template_loader', 'system')
+        self.auth_enabled = raw_conf.pop('auth')
 
         local_conf = raw_conf.get('local_conf', False)
         if local_conf is not False:

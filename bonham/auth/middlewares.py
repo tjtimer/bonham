@@ -1,6 +1,7 @@
 import jwt
 from aiohttp import web
 
+import bonham.core.app
 from bonham import app
 from .models import RefreshToken
 from .token import decode_token, verify_token
@@ -24,7 +25,7 @@ async def bearer_middleware(_, handler):
             )
             ref_data = await decode_token(ref_token['token'].encode('utf-8'))
             print(ref_data)  # TODO: refresh token flow!!!
-            response = await app.index(request)
+            response = await bonham.core.app.index(request)
             if not response.prepared:
                 response.headers.update({
                     'access': 'access',

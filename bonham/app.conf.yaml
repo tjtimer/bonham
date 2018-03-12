@@ -7,8 +7,11 @@ name: tjtimer.dev
 # Should not be more than number of available cores.
 replica: 2
 
-# on or true to enable, off or false to disable
+# use 'on' or 'true' to enable, 'off' or 'false' to disable
 debug: on
+# ssl can be either 'on'/'true', 'off'/'false' or a list of supported
+# SSL/TLS versions
+# By default it uses TLSv1
 ssl: on
 auth: off
 
@@ -29,13 +32,13 @@ root_dir: /var/www/tjtimer.dev
 #         .scks/      -> having your app sockets
 #
 # none of the following has to be given.
-# Given directory names with a slash / at the beginning
+# Given directory names beginning with a '/'
 # are are treated like absolute paths.
 #
 # public_root: public/
 # application_root: application/
-# apps_dir: apps/
-# template_dir: templates/
+# apps_dir: apps/  # this must be placed under application_root
+# templates_dir: templates/
 # media_dir: media/
 # static_dir: static/
 # conf_dir: conf/
@@ -46,38 +49,58 @@ root_dir: /var/www/tjtimer.dev
 #
 
 #
-# additional config files
-#
 # logging configuration
-# type can be either 'dict' or 'listen'
-# if type is dict than a path or filename has to be given
-# if set to listen a port must be set too.
+# if your logging configuration is in a json or yaml file
+# set logging_config to the filename or path.
+# if type is 'ini' than a path or filename has to be given
+# if type is 'listen' a port must be given.
 # see examples below and read the python docs at
 # https://docs.python.org/3/library/logging.config.html
 #
-# logging_conf:
+logging_config: logging.conf.yaml
+#
+# logging_config:
 #   type: listen
 #   port: 123456
 #
-logging_conf:
-  type: dict
-  path: logging.conf.yaml
+# logging_config:
+#   type: ini
+#   path: /path/to/mylogging.conf.ini
 #
 #
-# local_conf should be used to overwrite settings from this file.
-# or add other settings. see examples below
+# local_conf can be used to overwrite settings
+# from this file for example for development purposes
+# or to add other settings not nested like those in
+# the 'includes' section.
 #
-local_conf:  local.conf.yaml
+local_config:  local.conf.yaml
 #
+# additional config files can be placed
+# under 'includes' like this:
+# includes:
+#   - app1.conf.yaml
+#   - app2.yaml
+#   - /path/to/another/Application.conf.json
+#
+# The first part of the filename will be used
+# as the key (all lower case) to be set at
+# the config dict of the root app
+# where the value will be the configuration also
+# as a dict.
+# for example
+# a configuration in a file called superapp.conf.yaml
+# will be found at root['config']['superapp'].
 
 # set your desired jinja2 template loader
 # can be set to 'system' or 'package'
 # or 'of'/'false' to not use the jinja2 template engine.
 # default is 'system'
+#
 # template_loader: system  # system or package
 
 # Following settings are examples only and
-# could be placed in a 'local' config file.
+# could also be placed in a local or
+# additional config file.
 #
 # debug_env: <my-machine>
 #

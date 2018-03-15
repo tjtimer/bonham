@@ -1,21 +1,25 @@
 # name of your application, e.g. your domain name
-name: tjtimer.dev
+name: {{ name }}
 #
 # Set replica to the number of app instances
 # that should be running.
 # Each instance will run in its own process.
 # Should not be more than number of available cores.
-replica: 2
+# replica: 1
 
 # use 'on' or 'true' to enable, 'off' or 'false' to disable
 debug: on
-# ssl can be either 'on'/'true', 'off'/'false' or a list of supported
-# SSL/TLS versions
-# By default it uses TLSv1
-ssl: on
-auth: off
+# name of the machine or list of machine names where debug can be enabled
+debug_env: {{ debug_env }}
 
-root_dir: /var/www/tjtimer.dev
+# if use_ssl is set to 'true' or 'on' it uses TLSv1.2
+use_ssl: {{ ssl }}
+# require a password to start app 'on'/'true' or 'off'/'false'
+require_pw: {{ require_pw }}
+# enable bonham auth system 'on'/'true' or 'off'/'false'
+enable_auth: {{ enable_auth }}
+
+root_dir: {{ root_dir }}
 #
 # assuming this directory structure
 # <root_dir>/
@@ -102,19 +106,16 @@ local_config:  local.conf.yaml
 # could also be placed in a local or
 # additional config file.
 #
-# debug_env: <my-machine>
-#
-# databases:
-#   postgresql:
-#     name: db-name
-#     user: db-user
-#     port: postresql-port
-#     password: super-secure
-#   orientdb:
-#     name: db-name
-#     user: db-user
-#     port: orientdb-port
-#     password: evenMoreSecure!
+# postgresql:
+#   name: db-name
+#   user: db-user
+#   port: postresql-port
+#   password: super-secure
+# orientdb:
+#   name: db-name
+#   user: db-user
+#   port: orientdb-port
+#   password: evenMoreSecure!
 # 
 # email:
 #   server:

@@ -14,11 +14,12 @@ setup(
     entry_points={
         'console_scripts': [
             'bonham-run=bonham.app:run',
+            'bonham-init=bonham.CLI.init_project:run',
             ]
         },
     zip_safe=False,
     install_requires=[
-        'aiohttp', 'aiodocker', 'uvloop',
+        'aiohttp', 'arrow', 'asyncpg', 'cryptography', 'uvloop',
         'PyYaml', 'aiohttp_jinja2'
         ]
     )

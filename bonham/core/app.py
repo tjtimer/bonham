@@ -2,36 +2,12 @@
 
  app
 """
-import importlib
-import logging.config
 import os
-import ssl
-from _ssl import PROTOCOL_TLSv1_2
 
 import aiohttp_jinja2
 from aiohttp import web
 
-from bonham.core.config import load_config, ApplicationConfig
-
-
-def init_logging_conf(config: str or dict):
-    if isinstance(config, str):
-        config = load_config(config)
-        logging.config.dictConfig(config)
-    elif isinstance(config, dict):
-        if 'type' not in config.keys():
-            logging.config.dictConfig(config)
-        elif config['type'] == 'ini':
-            logging.config.fileConfig(config['path'])
-        else:
-            logging.config.listen(config['port'], verify=True)
-
-
-def import_apps(config: dict):
-    directory = config['directories']['apps']
-    yield (importlib.import_module(f'.app', f'{directory}.{name}')
-           for name in os.listdir(directory)
-           if name not in config.get('blacklisted_apps', []))
+from bonham.core.config import ApplicationConfig
 
 
 routes = web.RouteTableDef()
@@ -39,7 +15,7 @@ routes = web.RouteTableDef()
 
 @routes.get('/')
 async def index(request):
-    return aiohttp_jinja2.render_template(
+    return await aiohttp_jinja2.render_template(
         'index', request, {'title': 'my app'})
 
 
@@ -51,26 +27,6 @@ def init_template_engine(app):
         )
     )
 
-
-def get_default_ciphers(ssl_context, versions=None):
-    if not isinstance(versions, (list, tuple)):
-        versions = ['TLSv1.1', 'TLSv1.2']
-    default_ciphers_list = [
-        cipher['description'] for cipher in ssl_context.get_ciphers()
-        if any([version in cipher['description']
-                for version in versions])
-        ]
-    return default_ciphers_list
-
-def get_ssl_context(config, *,
-                    protocol=PROTOCOL_TLSv1_2,
-                    purpose=ssl.Purpose.SERVER_AUTH, **kwargs) -> ssl.SSLContext:
-    ssl_context = ssl.SSLContext(protocol=protocol)
-    ssl_context.load_default_certs(purpose=purpose)
-    ciphers = kwargs.pop(
-        'ciphers', get_default_ciphers(ssl_context, config))
-    ssl_context.set_ciphers(ciphers)
-    return ssl_context
 
 def prepare_subapp(_app_, root):
     app = web.Application()

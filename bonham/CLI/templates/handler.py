@@ -3,7 +3,7 @@ handler
 """
 from aiohttp import web
 
-from ..app import routes
+from bonham.core.app import routes
 
 
 @routes.get('/handler_name', name='handler_name')

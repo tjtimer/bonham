@@ -1,3 +1,4 @@
+!  # /usr/bin/python3
 """
 security
 """
@@ -11,7 +12,6 @@ import arrow
 from passlib.context import CryptContext
 
 from bonham.core.utils import opj
-
 
 pwd_context = CryptContext(
     # Replace this list with the hash(es) you wish to support.
@@ -32,34 +32,36 @@ pwd_context = CryptContext(
 )
 
 
+def app_sec_file(config): return opj(config.SECRETS_DIR, f'.{config.NAME}.sec')
+
+
+def create_app_secret(config):
+    fn = app_sec_file(config)
+    pw = getpass('application password please:')
+    hash = pwd_context.hash(pw)
+    with open(fn, 'w') as cf:
+        cf.write(hash)
+    os.chmod(fn, 300)
+
+
 def read_app_secret(config):
-    app_sec_file = opj(config.SECRETS_DIR, config.NAME)
-    with open(app_sec_file, 'r') as file:
+    with open(app_sec_file(config), 'r') as file:
         secret = file.read()
         return secret
 
 
-async def get_secret(path):
-    async with aiofiles.open(path, 'rb') as file:
+async def get_secret(name, path):
+    async with aiofiles.open(opj(path, name), 'rb') as file:
         secret = await file.read()
         return secret
 
 
-async def create_secret(path):
+async def create_secret(name, path):
     secret = secrets.token_bytes(48)
-    async with aiofiles.open(path, 'wb') as file:
+    f = opj(path, name)
+    async with aiofiles.open(f, 'wb') as file:
         await file.write(secret)
-    os.chmod(path, 300)
-
-
-def create_app_pw(config):
-    app_pwd_path = f'.secrets/.{config["name"]}.{arrow.now().for_json()}.sec'
-    app_sec = opj(config['root_dir'], app_pwd_path)
-    pw = getpass('application password please:')
-    hash = pwd_context.hash(pw)
-    with open(app_sec, 'w') as cf:
-        cf.write(hash)
-    os.chmod(app_sec, 300)
+    os.chmod(f, 300)
 
 
 def verify_start_permissions(config, retry):

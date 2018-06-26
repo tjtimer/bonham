@@ -14,7 +14,7 @@ setup(
     entry_points={
         'console_scripts': [
             'bonham-run=bonham.app:run',
-            'bonham-init=bonham.CLI.init_project:run',
+            'bonham-init=bonham.CLI.init_project:run', 'bonham-create=bonham.CLI.create:run',
             ]
         },
     zip_safe=False,

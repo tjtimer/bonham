@@ -6,9 +6,9 @@ import ssl
 from _ssl import PROTOCOL_TLSv1_2
 
 import aiofiles
-
 from bonham.core.crypto import get_secret
 
+from bonham.core.utils import opj
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 
-async def create_priv_pub_keys(config, name):
+async def create_priv_pub_keys(name, *, path=None, secret=None):
+    if path is None:
+        path = await get_secret(opj(os.getcwd(), '.certs'))
+    if secret is None:
+        secret = await get_secret(opj(os.getcwd(), '.secrets', f".{name}"))
     key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=4096,
@@ -27,20 +31,16 @@ async def create_priv_pub_keys(config, name):
     private_key = key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.BestAvailableEncryption(
-            await get_secret(os.path.join(config.SECRETS_PATH, f".{name}"))
-        )
+            encryption_algorithm=serialization.BestAvailableEncryption(secret)
     )
     public_key = key.public_key()
     pub_key = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.PKCS1,
     )
-    async with aiofiles.open(
-            os.path.join(config.CERTIFICATES_DIR, f"{name}_pr.pem"), "w+b") as f:
+    async with aiofiles.open(opj(path, f"{name}_pr.pem"), "w+b") as f:
         f.write(private_key)
-    async with aiofiles.open(
-            os.path.join(config.CERTIFICATES_DIR, f"{name}_pu.pem"), "w+b") as f:
+    async with aiofiles.open(opj(path, f"{name}_pu.pem"), "w+b") as f:
         f.write(pub_key)
 
 

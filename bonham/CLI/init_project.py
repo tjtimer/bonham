@@ -71,4 +71,4 @@ def run(name: str = None, restart: bool = False, config: dict = None):
     success_start = f"{f' It is done! ':^*80}"
     success_middle = f"{f' You can now take a break and enjoy this wonderful day. ':^-80}"
     success_end = f"{f' Bonham ':^*80}"
-    print(f"""{success_start}\n{success_middle}\n{success_end}""")
+    print(f"{success_start}\n{success_middle}\n{success_end}")

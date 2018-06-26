@@ -7,11 +7,10 @@ import os
 import aiohttp_jinja2
 from aiohttp import web
 
-from bonham.core.config import ApplicationConfig
-
+from bonham.core.config import ApplicationConfig, init_logging
 
 routes = web.RouteTableDef()
-
+app = web.Application()
 
 @routes.get('/')
 async def index(request):
@@ -43,7 +42,7 @@ def prepare_root(config_path: str):
     root['config'] = ApplicationConfig(config_path)
     os.chdir(root['config']['directories']['application'])
     if root['config']['log'] is not None:
-        init_logging_conf(root['config']['log'])
+        init_logging(root['config']['log'])
     for _app_ in import_apps(root['config']):
         app = prepare_subapp(_app_, root)
         if hasattr(_app_, 'prepare'):

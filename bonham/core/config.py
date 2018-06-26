@@ -6,12 +6,11 @@ import logging.config
 import os
 import socket
 import sys
+import types
 from pathlib import Path
-from types import ModuleType
 
 from bonham.core.ssl import get_ssl_context
 from bonham.core.utils import opj
-
 
 __all__ = ('ApplicationConfig', 'conf_to_settings', 'load_config')
 
@@ -20,7 +19,7 @@ def conf_to_settings(path: str or Path, *,
                      name: str = 'settings',
                      append: bool = False):
     conf = ApplicationConfig(path)
-    settings = ModuleType('settings')
+    settings = types.ModuleType('settings')
     for k, v in conf.__dict__.items():
         setattr(settings, k.upper(), v)
     if append is True:
@@ -46,10 +45,10 @@ def load_config(path: str) -> dict:
         if f_type in 'ymlyaml':
             import yaml
             return yaml.safe_load(f.read())
-        elif f_type == 'json':
+        elif f_type in 'json':
             import json
             return json.loads(f.read())
-        elif f_type in ['cfg', 'ini']:
+        elif f_type in 'cfgini':
             import configparser
             config = configparser.ConfigParser()
             return config.read_file(open(path))
@@ -79,14 +78,14 @@ class ApplicationConfig:
         if debug_env is not None:
             debug = debug and socket.gethostname() == debug_env
 
-        self.parse_directories()
+        self.__parse_directories()
         self.NAME = self._conf.get('name', 'application')
         self.DEBUG = debug
         self.USE_SSL = self._conf.get('use_ssl', False)
-        if self.USE_SSL is not False:
-            self.SSL_CONTEXT = get_ssl_context()
-        else:
+        if self.USE_SSL is False:
             self.SSL_CONTEXT = None
+        else:
+            self.SSL_CONTEXT = get_ssl_context()
         self.ENABLE_AUTH = self._conf.get('enable_auth')
         log = self._conf.get('logging_config', None)
         if isinstance(log, dict):
@@ -109,7 +108,7 @@ class ApplicationConfig:
     def __getitem__(self, item):
         return object.__getattribute__(self, item.upper())
 
-    def parse_directories(self):
+    def __parse_directories(self):
         root_directory = self._conf.get('root_dir', os.getcwd())
         application = self._conf.get('application_root', 'application')
         if not application.startswith('/'):

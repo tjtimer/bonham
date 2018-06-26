@@ -14,7 +14,6 @@ from bonham.core.utils import opj
 from .core.config import ApplicationConfig
 from .core.security import check_retries_to, verify_start_permissions
 
-
 try:
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -27,8 +26,6 @@ parser = argparse.ArgumentParser(description='Start your Bonham app.')
 parser.add_argument('--config', '-c', help='path to your config file')
 
 log = logging.getLogger(__file__)
-app = web.Application()
-
 
 def run(config_path: str or Path = None, config: ApplicationConfig = None, retry: int = 0):
     if config is None:

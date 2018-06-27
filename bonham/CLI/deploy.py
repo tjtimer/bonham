@@ -1,7 +1,0 @@
-"""
-deploy
-"""
-
-
-def run():
-    pass

@@ -1,0 +1,3 @@
+version: {{ verion }}
+title: {{ title }}
+template_dir: {{ 'templates' }}

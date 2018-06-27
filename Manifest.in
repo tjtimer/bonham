@@ -1,1 +1,1 @@
-include bonham/CLI/templates/*
+include bonham/templates/*

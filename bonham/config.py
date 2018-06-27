@@ -46,7 +46,8 @@ class AppConfig(object):
         if not self.__path.parent.exists():
             self.__path.parent.mkdir()
         with open(self.__path, 'w') as f:
-            f.write(yaml.serialize(**self.data))
+            for k, v in self.data.items():
+                f.write(f"{k}: {v}\n")
 
     def load(self, path: str = None):
         if path is not None:

@@ -1,11 +1,12 @@
 .cache/
+__pycache__/
 .hypothesis/
 .idea/
 .tox/
 .vscode/
-bonham.egg-info/
-bonham/local.conf.yaml
-bonham/settings.py
+.pytest_cache/
+
+vibora/
 venv/
 docs/
-**/__pycache__
+

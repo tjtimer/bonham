@@ -2,25 +2,42 @@
 # created: 27.06.18
 # Author: Tim "tjtimer" Jedro
 # Email: tjtimer@gmail.com
-import aiohttp_jinja2 as aiohttp_jinja2
-import jinja2
-from aiohttp import web
+#
+# try:
+#     import uvloop
+#     import asyncio
+#
+#     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+# except ImportError:
+#     pass
+import logging
+from pprint import pprint
+from vibora import Vibora, Request, Response
+from vibora.static import StaticHandler
 
+# components
 from bonham.config import AppConfig
 
-routes = web.RouteTableDef()
-app = web.Application()
+# services
+from bonham.security.service import security
+
+logger = logging.getLogger('app')
+components = (AppConfig(),)
+services = (
+    (security, dict(security='/s')),
+)
 
 
-def setup():
-    app['config'] = AppConfig()
-    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(app['config']['template_dir']))
-    app.add_routes(routes)
-    return app
+app = Vibora()
+
+for comp in components:
+    app.components.add(comp)
+
+for service, prefix in services:
+    app.add_blueprint(service, prefixes=prefix)
 
 
-def run(**kwargs):
-    web.run_app(app, **kwargs)
-
-if __name__ == '__main__':
-    run()
+@app.route('/', methods=['GET'])
+async def index(request: Request) -> Response:
+    logger.debug(request.headers)
+    return Response(b'app index')

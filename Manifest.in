@@ -1,1 +1,1 @@
-include bonham/templates/*
+global-include *.md *.html

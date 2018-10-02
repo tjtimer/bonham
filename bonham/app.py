@@ -11,33 +11,13 @@
 # except ImportError:
 #     pass
 import logging
-from pprint import pprint
-from vibora import Vibora, Request, Response
-from vibora.static import StaticHandler
 
-# components
-from bonham.config import AppConfig
+from aiohttp import web
 
-# services
-from bonham.security.service import security
-
-logger = logging.getLogger('app')
-components = (AppConfig(),)
-services = (
-    (security, dict(security='/s')),
-)
+logger = logging.getLogger('bonham')
+logger.debug('my debug message')
 
 
-app = Vibora()
-
-for comp in components:
-    app.components.add(comp)
-
-for service, prefix in services:
-    app.add_blueprint(service, prefixes=prefix)
-
-
-@app.route('/', methods=['GET'])
-async def index(request: Request) -> Response:
-    logger.debug(request.headers)
-    return Response(b'app index')
+async def setup():
+    app = web.Application()
+    return app

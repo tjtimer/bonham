@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name='bonham',
     version='0.0.1.dev',
-    description='python vibora based web app',
+    description='python aiohttp based web app',
     url='https://github.com/tjtimer/bonham',
     author='Tim "tjtimer" Jedro',
     author_email='tjtimer@gmail.com', license='MIT', packages=find_packages('bonham'),
@@ -16,5 +16,5 @@ setup(
         ]
     },
     zip_safe=False,
-    install_requires=['vibora', 'passlib', 'PyYaml', 'PyJWT', 'uvloop']
+    install_requires=['aiohttp', 'aiofiles', 'passlib', 'PyYaml', 'PyJWT', 'uvloop', 'cryptography']
 )

@@ -47,7 +47,7 @@ dictConfig({
         },
     },
     'loggers': {
-        'app': {
+        'bonham': {
             'handlers': ['console']
         },
         'config': {

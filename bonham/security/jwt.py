@@ -36,7 +36,6 @@ async def decode_token(token: str) -> dict:
 
 async def verify_token(token: str) -> dict:
     data = await decode_token(token)
-    expired = arrow.get(data['exp']) < arrow.now()
     if expired:
         raise jwt.ExpiredSignatureError
     return data

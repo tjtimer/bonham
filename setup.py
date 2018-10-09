@@ -16,5 +16,5 @@ setup(
         ]
     },
     zip_safe=False,
-    install_requires=['aiohttp', 'aiofiles', 'passlib', 'PyYaml', 'PyJWT', 'uvloop', 'cryptography']
+    install_requires=['aiohttp', 'aiofiles', 'passlib', 'PyYaml', 'PyJWT', 'cryptography']
 )

@@ -13,7 +13,7 @@ from pathlib import Path
 from bonham.storage import file
 
 
-async def create_key_s(password: bytes, path: [str, Path]=None, prefix: str=None):
+async def create_keys(password: bytes, path: [str, Path]=None, prefix: str=None):
     key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=4096,

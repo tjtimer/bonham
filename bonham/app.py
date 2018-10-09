@@ -28,7 +28,7 @@ SERVICES = {importlib.import_module(f'{APP_DIR.name}.{SERVICE_DIR.name}.{srv.ste
             if '__' not in srv.stem}
 
 
-class AccessType(enum.Enum):
+class AccessMode(enum.Enum):
     """access permissions
     (e.g. database collections, endpoints, files, ...)
     """
@@ -38,14 +38,6 @@ class AccessType(enum.Enum):
     FULL = 3
 
 
-class IsAdminOf('Edge'):
-    pass
-
-
-class IsMemberOf('Edge'):
-    pass
-
-
 async def setup():
     app = web.Application()
     await asyncio.gather(
@@ -53,7 +45,3 @@ async def setup():
     )
     return app
 
-
-def run():
-    asyncio.get_event_loop().run_until_complete(setup())
-    print('setup done!')

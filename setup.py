@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name='bonham',
     version='0.0.1.dev',
-    description='CLI tool for web app projects with python and Vue.js.',
+    description='Progressive web app development made easy.',
     url='https://github.com/tjtimer/bonham',
     author='Tim "tjtimer" Jedro',
     author_email='tjtimer@gmail.com',
@@ -12,22 +12,15 @@ setup(
     include_package_data=True,
     entry_points={
         'console_scripts': [
-            'bonham=bonham.cli:cli'
+            'bonham=bonham.app:run'
         ]
     },
     zip_safe=False,
     install_requires=[
-        'click',
-        'sanic',
-        'aiofiles',
-        'passlib',
-        'PyYaml',
-        'PyJWT',
-        'cryptography',
+        'curio',
+        'inflect',
         'pytest',
-        'pytest-sanic',
         'pytest-aiohttp',
-        'jinja2-sanic',
         'hypothesis'
     ]
 )

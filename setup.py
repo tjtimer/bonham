@@ -17,10 +17,20 @@ setup(
     },
     zip_safe=False,
     install_requires=[
-        'curio',
+        'aiohttp',
+        'aiohttp-graphql',
+        'aiojobs',
+        'cchardet',
+        'cryptography',
+        'graphene',
+        'htmldoom',
+        'hypothesis',
         'inflect',
+        'javascripthon',
+        'passlib',
         'pytest',
         'pytest-aiohttp',
-        'hypothesis'
+        'PyYaml',
+        'ujson'
     ]
 )

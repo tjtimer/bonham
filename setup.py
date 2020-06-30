@@ -1,9 +1,15 @@
 from setuptools import find_packages, setup
 
+from __version__ import VERSION
+
+with open('README.md', 'r') as readme:
+    long_desc = readme.read()
+
 setup(
     name='bonham',
-    version='0.0.1.dev',
-    description='Progressive web app development made easy.',
+    version=VERSION,
+    description='Python web app.',
+    long_description=long_desc,
     url='https://github.com/tjtimer/bonham',
     author='Tim "tjtimer" Jedro',
     author_email='tjtimer@gmail.com',
@@ -20,7 +26,6 @@ setup(
         'aiohttp',
         'aiohttp-graphql',
         'aiojobs',
-        'cchardet',
         'cryptography',
         'graphene',
         'htmldoom',
@@ -30,7 +35,11 @@ setup(
         'passlib',
         'pytest',
         'pytest-aiohttp',
-        'PyYaml',
+        'PyYaml'
+    ],
+    extra_requires=(
+        'cchardet',
+        'uvloop',
         'ujson'
-    ]
+    )
 )
